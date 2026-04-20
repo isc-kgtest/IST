@@ -3,6 +3,7 @@
   <Project Path="IST.Client/IST.Client.csproj" />
   <Project Path="IST.Contracts/IST.Contracts.csproj" />
   <Project Path="IST.Core/IST.Core.csproj" Id="f7112f37-dc7a-4afd-a5a3-f200df6f68f5" />
+  <Project Path="IST.Infrastructure/IST.Infrastructure.csproj" Id="f772622a-323f-451e-8de4-3017d8d69113" />
   <Project Path="IST.Server/IST.Server.csproj" />
   <Project Path="IST.Services/IST.Services.csproj" />
   <Project Path="IST.Shared/IST.Shared.csproj" Id="a70bf8bb-30af-4b30-bbc6-4504f4cecb9e" />
