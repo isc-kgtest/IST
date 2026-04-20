@@ -1,0 +1,138 @@
+@page "/login"
+@using IST.Contracts.Features.Auth
+@using ActualLab.CommandR
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Authentication
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using System.Security.Claims
+@inject ICommander Commander
+@inject ISessionResolver SessionResolver
+
+<PageTitle>IST Admin — Login</PageTitle>
+
+<MudGrid Justify="Justify.Center" Style="min-height: 85vh;" Class="align-center">
+    <MudItem xs="12" sm="8" md="5" lg="4">
+        <MudPaper Elevation="5" Style="border-radius: 16px; overflow: hidden;">
+            <!-- Header banner -->
+            <div style="background: linear-gradient(135deg, #263238 0%, #37474F 100%); padding: 32px; text-align: center;">
+                <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Style="font-size: 56px; color: white;" />
+                <MudText Typo="Typo.h5" Style="color: white; margin-top: 12px; font-weight: 700;">Admin Portal</MudText>
+                <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.7); margin-top: 4px;">IST Management System</MudText>
+            </div>
+
+            <!-- Form -->
+            <div class="pa-8">
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">@_errorMessage</MudAlert>
+                }
+
+                <MudForm @ref="_form" @bind-IsValid="@_success">
+                    <MudTextField T="string"
+                                  @bind-Value="Username"
+                                  Label="Username"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Person"
+                                  Required="true"
+                                  RequiredError="Username is required"
+                                  Class="mb-4" />
+
+                    <MudTextField T="string"
+                                  @bind-Value="Password"
+                                  Label="Password"
+                                  Variant="Variant.Outlined"
+                                  InputType="@_passwordInputType"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@_passwordIcon"
+                                  OnAdornmentClick="TogglePasswordVisibility"
+                                  Required="true"
+                                  RequiredError="Password is required"
+                                  Class="mb-6" />
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Size="Size.Large"
+                               FullWidth="true"
+                               OnClick="LoginAsync"
+                               StartIcon="@Icons.Material.Filled.Login"
+                               Disabled="@_isLoading"
+                               Style="border-radius: 8px; height: 48px;">
+                        @if (_isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Signing in...</span>
+                        }
+                        else
+                        {
+                            <span>Sign In</span>
+                        }
+                    </MudButton>
+                </MudForm>
+            </div>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+
+    private string Username { get; set; } = "";
+    private string Password { get; set; } = "";
+    private bool _success;
+    private bool _isLoading;
+    private string _errorMessage = "";
+    private MudForm _form = null!;
+    private InputType _passwordInputType = InputType.Password;
+    private string _passwordIcon = Icons.Material.Filled.VisibilityOff;
+
+    void TogglePasswordVisibility()
+    {
+        if (_passwordInputType == InputType.Password)
+        {
+            _passwordInputType = InputType.Text;
+            _passwordIcon = Icons.Material.Filled.Visibility;
+        }
+        else
+        {
+            _passwordInputType = InputType.Password;
+            _passwordIcon = Icons.Material.Filled.VisibilityOff;
+        }
+    }
+
+    private async Task LoginAsync()
+    {
+        await _form.ValidateAsync();
+        if (!_success) return;
+
+        _isLoading = true;
+        _errorMessage = "";
+        try
+        {
+            var session = SessionResolver.Session;
+            var cmd = new LoginAdminCmd(session, Username, Password);
+            await Commander.Call(cmd);
+
+            if (HttpContext != null)
+            {
+                var claims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.Name, Username),
+                    new Claim("Role", "Admin")
+                };
+                var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+                await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+            }
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Invalid credentials. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

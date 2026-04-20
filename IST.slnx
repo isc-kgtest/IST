@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="IST.Admin/IST.Admin.csproj" />
+  <Project Path="IST.Client/IST.Client.csproj" />
+  <Project Path="IST.Contracts/IST.Contracts.csproj" />
+  <Project Path="IST.Core/IST.Core.csproj" Id="f7112f37-dc7a-4afd-a5a3-f200df6f68f5" />
+  <Project Path="IST.Server/IST.Server.csproj" />
+  <Project Path="IST.Services/IST.Services.csproj" />
+  <Project Path="IST.Shared/IST.Shared.csproj" Id="a70bf8bb-30af-4b30-bbc6-4504f4cecb9e" />
+  <Project Path="IST.UI/IST.UI.csproj" Id="00e526f2-b037-4b59-a197-6ea32322172e" />
+</Solution>

@@ -1,0 +1,85 @@
+@page "/"
+
+<PageTitle>IST Admin — Dashboard</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-2"><b>Dashboard</b></MudText>
+<MudText Typo="Typo.subtitle1" Class="mb-6" Color="Color.Secondary">Welcome back, Administrator</MudText>
+
+<MudGrid>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="3" Class="pa-4 d-flex align-center" Style="border-left: 4px solid #37474F; border-radius: 8px;">
+            <MudIcon Icon="@Icons.Material.Filled.People" Style="font-size: 40px; color: #37474F;" Class="mr-4" />
+            <div>
+                <MudText Typo="Typo.h5"><b>128</b></MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Total Users</MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="3" Class="pa-4 d-flex align-center" Style="border-left: 4px solid #1565C0; border-radius: 8px;">
+            <MudIcon Icon="@Icons.Custom.Brands.Telegram" Style="font-size: 40px; color: #1565C0;" Class="mr-4" />
+            <div>
+                <MudText Typo="Typo.h5"><b>94</b></MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Telegram Users</MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="3" Class="pa-4 d-flex align-center" Style="border-left: 4px solid #2E7D32; border-radius: 8px;">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="font-size: 40px; color: #2E7D32;" Class="mr-4" />
+            <div>
+                <MudText Typo="Typo.h5"><b>Active</b></MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">System Status</MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="3" Class="pa-4 d-flex align-center" Style="border-left: 4px solid #E65100; border-radius: 8px;">
+            <MudIcon Icon="@Icons.Material.Filled.Security" Style="font-size: 40px; color: #E65100;" Class="mr-4" />
+            <div>
+                <MudText Typo="Typo.h5"><b>3</b></MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Roles Configured</MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudGrid Class="mt-6">
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="2" Class="pa-6" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-4"><MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Class="mr-2" />Quick Actions</MudText>
+            <MudDivider Class="mb-4" />
+            <MudList T="string">
+                <MudListItem Icon="@Icons.Material.Filled.Login" Href="/login">
+                    Go to Admin Login
+                </MudListItem>
+                <MudListItem Icon="@Icons.Material.Filled.ManageAccounts">
+                    Manage Users
+                </MudListItem>
+                <MudListItem Icon="@Icons.Material.Filled.Settings">
+                    System Settings
+                </MudListItem>
+            </MudList>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="2" Class="pa-6" Style="border-radius: 12px;">
+            <MudText Typo="Typo.h6" Class="mb-4"><MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" />Recent Activity</MudText>
+            <MudDivider Class="mb-4" />
+            <MudTimeline TimelinePosition="TimelinePosition.Left">
+                <MudTimelineItem Color="Color.Success" Size="Size.Small">
+                    <MudText Typo="Typo.body2">Admin login successful</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">2 minutes ago</MudText>
+                </MudTimelineItem>
+                <MudTimelineItem Color="Color.Info" Size="Size.Small">
+                    <MudText Typo="Typo.body2">New Telegram user registered</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">1 hour ago</MudText>
+                </MudTimelineItem>
+                <MudTimelineItem Color="Color.Warning" Size="Size.Small">
+                    <MudText Typo="Typo.body2">System configuration updated</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">3 hours ago</MudText>
+                </MudTimelineItem>
+            </MudTimeline>
+        </MudPaper>
+    </MudItem>
+</MudGrid>

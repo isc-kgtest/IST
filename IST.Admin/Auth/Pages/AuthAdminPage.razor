@@ -1,0 +1,425 @@
+﻿@page "/authadminpage"
+
+@attribute [Authorize(Roles = "admin")]
+
+<PageTitle>Панель управления доступом</PageTitle>
+
+<MudAlert Elevation="0" Dense="true" Class="my-2">
+	Панель управления доступом
+</MudAlert>
+
+<MudTabs @bind-DisableRipple="_processing" Outlined="true" Rounded="true" ApplyEffectsToContainer="true">
+	<MudTabPanel Text="Пользователи">
+		<MudDynamicTable Title="Список" Items="@_users">
+			<AddButton>
+				<MudTooltip Placement="Placement.Top" Text="Создать нового пользователя">
+					<MudFab Class="ml-2" Color="Color.Success" StartIcon="@Icons.Material.Rounded.GroupAdd" OnClick="ShowCreateUserForm" />
+				</MudTooltip>
+				<MudTooltip Placement="Placement.Top" Text="Обновить">
+					<MudFab Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="GetAllUsers" />
+				</MudTooltip>
+			</AddButton>
+		</MudDynamicTable>
+	</MudTabPanel>
+	<MudTabPanel Text="Роли">
+		<MudDynamicTable Title="Список" Items="@_roles">
+			<AddButton>
+				<MudTooltip Placement="Placement.Top" Text="Добавить новый роль">
+					<MudFab Class="ml-2" Color="Color.Success" StartIcon="@Icons.Material.Rounded.AddModerator" OnClick="ShowCreateRoleForm" />
+				</MudTooltip>
+				<MudTooltip Placement="Placement.Top" Text="Обновить">
+					<MudFab Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="GetAllRoles" />
+				</MudTooltip>
+			</AddButton>
+		</MudDynamicTable>
+	</MudTabPanel>
+</MudTabs>
+
+@code {
+
+	private bool _processing = false;
+
+	private List<Dictionary<string, object>> _users { get; set; } = new();
+	private List<Dictionary<string, object>> _roles { get; set; } = new();
+
+	[CascadingParameter(Name = "UserProfile")]
+	private UserProfile UserProfile { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		await GetAllUsers();
+		await GetAllRoles();
+		StateHasChanged();
+	}
+
+	private async Task GetAllRoles()
+	{
+		var res = await _mediatr.Send(new GetAllRolesQuery { UserProfile =  UserProfile });
+
+		if (res.Status)
+		{
+			var roles = res.Data.OrderBy(x => x.CreateDate);
+
+			if (roles.Any())
+			{
+				_roles = new();
+
+				foreach (var role in roles)
+				{
+					_roles.Add(new Dictionary<string, object>
+					{
+						//{ "ID", user.Id },
+						{ "Название", role.Name },
+						{ "Описание", role.Description },
+						{ "Дата создания", role.CreateDate },
+						{ "FunctionMenu", new List<MenuItemModel>
+							{
+								new MenuItemModel
+								{
+									Label = "Изменить",
+									OnClickAsync = async () => await ShowUpdateRoleForm(role.Id)
+								},
+								new MenuItemModel
+								{
+									Label = "Удалить",
+									OnClickAsync = async () => await ShowRoleDeleteDialog(role.Id)
+								},
+							}
+						}
+					});
+				}
+			}
+			StateHasChanged();
+		}
+		else
+		{
+			_snackbar.Add($"Не удалось загрузить данные. {res.StatusMessage}", Severity.Warning);
+		}
+	}
+
+	private async Task ShowCreateRoleForm()
+	{
+		IDialogReference dialogRef = default!;
+		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+		var parameters = new DialogParameters
+		{
+			["ChildContent"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<CreateRoleForm>(0); // Правильный способ добавить компонент
+				builder.CloseComponent();
+			})
+		};
+
+		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Добавить новый роль", parameters, options);
+
+		var result = await dialogRef.Result;
+
+		if (!result.Canceled)
+		{
+			await GetAllRoles();
+		}
+	}
+
+	private async Task ShowRoleDeleteDialog(Ulid Id)
+	{
+		IDialogReference dialogRef = default!;
+		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+		var parameters = new DialogParameters
+		{
+			["ButtonOk"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<MudButton>(0);
+				builder.AddAttribute(1, "Color", Color.Secondary);
+				builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, ConfirmDialog));
+				builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Удалить")));
+				builder.CloseComponent();
+			}),
+			["ButtonCancel"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<MudButton>(0);
+				builder.AddAttribute(1, "Color", Color.Primary);
+				builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, CancelDialog));
+				builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Отмена")));
+				builder.CloseComponent();
+			}),
+		};
+
+		var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Medium };
+
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Вы уверены, что хотите удалить?", parameters, options);
+
+		var result = await dialogRef.Result;
+
+		if (!result.Canceled)
+		{
+			var res = await _mediatr.Send(new DeleteRoleCommand { Id = Id, UserProfile =  UserProfile });
+
+			_snackbar.Configuration.SnackbarVariant = Variant.Outlined;
+			_snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+
+			if (res.Status)
+			{
+				_snackbar.Add("Роль успешно удалён.", Severity.Success);
+				await GetAllRoles();
+			}
+			else
+			{
+				_snackbar.Add("Не удалось удалить роль: " + res.StatusMessage, Severity.Error);
+			}
+		}
+	}
+
+	private async Task ShowUpdateRoleForm(Ulid RoleId)
+	{
+		IDialogReference dialogRef = default!;
+		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+		var parameters = new DialogParameters
+		{
+			["ChildContent"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<UpdateRoleForm>(0); // Правильный способ добавить компонент
+				builder.AddAttribute(1, "RoleId", RoleId);
+				builder.CloseComponent();
+			})
+		};
+
+		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Роль", parameters, options);
+
+		var result = await dialogRef.Result;
+
+		if (!result.Canceled)
+		{
+			await GetAllRoles();
+		}
+	}
+
+	private async Task GetAllUsers()
+	{
+		var res = await _mediatr.Send(new GetAllUsersQuery { UserProfile =  UserProfile});
+
+		if (res.Status)
+		{
+			var users = res.Data.OrderBy(x => x.CreateDate);
+
+			if (users.Any())
+			{
+				_users = new();
+
+				foreach (var user in users)
+				{
+					_users.Add(new Dictionary<string, object>
+					{
+						//{ "ID", user.Id },
+						{ "Логин", user.UserName },
+						{ "Полное имя", user.FullName },
+						{ "Дата создания", user.CreateDate },
+						{ "Срок действия пароля", user.PasswordExpiryDate },
+						{ "FunctionMenu", new List<MenuItemModel>
+							{
+								new MenuItemModel
+								{
+									Label = "Профиль",
+									OnClickAsync = async () => await ShowUserProfile(user.Id)
+								},
+								new MenuItemModel
+								{
+									Label = "Роли",
+									OnClickAsync = async () => await ShowEditUserRoleForm(user.Id)
+								},
+								new MenuItemModel
+								{
+									Label = "Сброс пароля",
+									OnClickAsync = async () => await ShowResetPasswordForm(user.UserName)
+								},
+								new MenuItemModel
+								{
+									Label = "Удалить",
+									OnClickAsync = async () => await ShowUserDeleteDialog(user.Id)
+								},
+							} 
+						}
+					});
+				}
+			}
+			StateHasChanged();
+		}
+		else
+		{
+			_snackbar.Add($"Не удалось загрузить данные пользователей. {res.StatusMessage}", Severity.Warning);
+		}
+	}
+
+
+
+	private async Task ShowEditUserRoleForm(Ulid UserId)
+	{
+		IDialogReference dialogRef = default!;
+		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+		var parameters = new DialogParameters
+		{
+			["ChildContent"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<EditUserRoleForm>(0); // Правильный способ добавить компонент
+				builder.AddAttribute(1, "UserId", UserId);
+				builder.CloseComponent();
+			})
+		};
+
+		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Профиль", parameters, options);
+
+		var result = await dialogRef.Result;
+
+		if (!result.Canceled)
+		{
+			await GetAllUsers();
+		}
+	}
+
+	private async Task ShowResetPasswordForm(string UserName)
+	{
+		IDialogReference dialogRef = default!;
+		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+		var parameters = new DialogParameters
+		{
+			["ChildContent"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<ResetPasswordForm>(0); // Правильный способ добавить компонент
+				builder.AddAttribute(1, "UserName", UserName);
+				builder.CloseComponent();
+			})
+		};
+
+		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Сброс пароля", parameters, options);
+
+		var result = await dialogRef.Result;
+
+		if (!result.Canceled)
+		{
+			await GetAllUsers();
+		}
+	}
+
+	private async Task ShowUserDeleteDialog(Ulid Id)
+	{
+		IDialogReference dialogRef = default!;
+		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+		var parameters = new DialogParameters
+		{
+			["ButtonOk"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<MudButton>(0);
+				builder.AddAttribute(1, "Color", Color.Secondary);
+				builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, ConfirmDialog));
+				builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Удалить")));
+				builder.CloseComponent();
+			}),
+			["ButtonCancel"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<MudButton>(0);
+				builder.AddAttribute(1, "Color", Color.Primary);
+				builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, CancelDialog));
+				builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Отмена")));
+				builder.CloseComponent();
+			}),
+		};
+
+		var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Medium };
+
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Вы уверены, что хотите удалить этого пользователя?", parameters, options);
+
+		var result = await dialogRef.Result;
+
+		if (!result.Canceled)
+		{
+			var res = await _mediatr.Send(new DeleteUserCommand { Id = Id, UserProfile =  UserProfile });
+
+			_snackbar.Configuration.SnackbarVariant = Variant.Outlined;
+			_snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+
+			if (res.Status)
+			{
+				_snackbar.Add("Пользователь успешно удалён.", Severity.Success);
+				await GetAllUsers();
+			}
+			else
+			{
+				_snackbar.Add("Не удалось удалить пользователя: " + res.StatusMessage, Severity.Error);
+			}
+		}
+	}
+
+	private async Task ShowUserProfile(Ulid UserId)
+	{
+		IDialogReference dialogRef = default!;
+		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+		var parameters = new DialogParameters
+		{
+			["ChildContent"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<UserProfileForm>(0); // Правильный способ добавить компонент
+				builder.AddAttribute(1, "UserId", UserId);
+				builder.CloseComponent();
+			})
+		};
+
+		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Профиль", parameters, options);
+
+		var result = await dialogRef.Result;
+
+		if (!result.Canceled)
+		{
+			await GetAllUsers();
+		}
+	}
+
+	private async Task ShowCreateUserForm()
+	{
+		IDialogReference dialogRef = default!;
+		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+		var parameters = new DialogParameters
+		{
+			["ChildContent"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<CreateUserForm>(0); // Правильный способ добавить компонент
+				builder.CloseComponent();
+			})
+		};
+
+		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Форма", parameters, options);
+
+		var result = await dialogRef.Result;
+
+		if (!result.Canceled)
+		{
+			await GetAllUsers();
+		}
+	}
+}

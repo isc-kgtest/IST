@@ -1,0 +1,95 @@
+@page "/tg-login"
+@using IST.Contracts.Features.Auth
+@using ActualLab.CommandR
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Authentication
+@inject ICommander Commander
+@inject ISessionResolver SessionResolver
+
+<PageTitle>Telegram Login</PageTitle>
+
+<MudGrid Justify="Justify.Center" Style="min-height: 85vh;" Class="align-center">
+    <MudItem xs="12" sm="8" md="5" lg="4">
+        <MudPaper Elevation="5" Style="border-radius: 16px; overflow: hidden;">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #2979d8 0%, #3390ec 100%); padding: 36px; text-align: center;">
+                <MudIcon Icon="@Icons.Custom.Brands.Telegram" Style="font-size: 64px; color: white;" />
+                <MudText Typo="Typo.h5" Style="color: white; margin-top: 12px; font-weight: 700;">Telegram Login</MudText>
+                <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.75);">IST Mini App</MudText>
+            </div>
+
+            <!-- Content -->
+            <div class="pa-8" style="text-align: center;">
+                @if (_success)
+                {
+                    <MudAlert Severity="Severity.Success" Class="mb-4">
+                        Successfully authenticated via Telegram!
+                    </MudAlert>
+                }
+                else if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+                }
+
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+                    Click the button below to authenticate using your Telegram account.
+                </MudText>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Info"
+                           Size="Size.Large"
+                           FullWidth="true"
+                           OnClick="LoginViaTelegramAsync"
+                           StartIcon="@Icons.Custom.Brands.Telegram"
+                           Disabled="@_isLoading"
+                           Style="border-radius: 10px; height: 52px; font-weight: 600; font-size: 1rem;">
+                    @if (_isLoading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Authorizing...</span>
+                    }
+                    else
+                    {
+                        <span>Login via Telegram</span>
+                    }
+                </MudButton>
+
+                <MudDivider Class="my-6" />
+
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    <MudIcon Icon="@Icons.Material.Filled.Lock" Style="font-size: 14px; vertical-align: middle;" Class="mr-1" />
+                    Secured with HMAC-SHA256 verification
+                </MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private bool _isLoading;
+    private bool _success;
+    private string _errorMessage = "";
+
+    private async Task LoginViaTelegramAsync()
+    {
+        _isLoading = true;
+        _errorMessage = "";
+        try
+        {
+            // В реальности initData берётся через JSInterop из window.Telegram.WebApp.initData
+            var simulatedInitData = "query_id=xxx&user=%7B%22id%22%3A123456789%7D&auth_date=1600000000&hash=valid_hash";
+            var session = SessionResolver.Session;
+            var cmd = new LoginTelegramCmd(session, simulatedInitData);
+            await Commander.Call(cmd);
+            _success = true;
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Authorization failed. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

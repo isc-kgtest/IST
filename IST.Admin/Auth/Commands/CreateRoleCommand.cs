@@ -1,0 +1,66 @@
+﻿using ASIO10.Application.Common.Attributes;
+using ASIO10.Application.Common.Interfaces;
+using ASIO10.Auth.Models;
+using ASIO10.Domain.EntityModels.Auth;
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+
+namespace ASIO10.Auth.Commands;
+
+using ResponseModel = ASIO10.Domain.EntityModels.Auth.RoleEntity;
+
+[AuthRole("admin")]
+public class CreateRoleCommand : IRequest<ResponseDTO<ResponseModel>>, IAuthorizableRequest
+{
+    [Required(ErrorMessage = "Название роля обязательно.")]
+    [StringLength(50, ErrorMessage = "Название должен содержать от 3 до 50 символов.", MinimumLength = 3)]
+    public string Name { get; set; }
+
+    [Required(ErrorMessage = "Описание обязательно.")]
+    [StringLength(128, ErrorMessage = "Описание должен содержать от 3 до 128 символов.", MinimumLength = 3)]
+    public string Description { get; set; }
+
+    public required UserProfile UserProfile { get; set; }
+
+    public class Handler : IRequestHandler<CreateRoleCommand, ResponseDTO<ResponseModel>>
+    {
+        private readonly IAppDbContext _appDbContext;
+
+        public Handler(IAppDbContext appDbContext)
+        {
+            _appDbContext = appDbContext;
+        }
+
+        public async Task<ResponseDTO<ResponseModel>> Handle(CreateRoleCommand request, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var role = new RoleEntity()
+                {
+                    Name = request.Name.ToLower().Trim(),
+                    Description = request.Description,
+                    CreatorUserId = request.UserProfile.UserSession.UserId
+                };
+
+                await _appDbContext.Roles.AddAsync(role, cancellationToken);
+
+                await _appDbContext.SaveChangesAsync(cancellationToken);
+
+                return new()
+                {
+                    Status = true,
+                    StatusMessage = "Ok",
+                    Data = role
+                };
+            }
+            catch (Exception ex)
+            {
+                return new()
+                {
+                    Status = false,
+                    StatusMessage = ex.Message,
+                };
+            }
+        }
+    }
+}

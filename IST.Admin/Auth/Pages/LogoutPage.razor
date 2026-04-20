@@ -1,0 +1,25 @@
+﻿@page "/logout"
+ 
+@using ASIO10.Auth.Services
+@using Microsoft.AspNetCore.Components.Authorization
+
+<h3>Logout</h3>
+
+@code {
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var success = await _js.InvokeAsync<bool>("authHelper.logout");
+            if (success)
+            {
+                _navManager.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                // ошибка
+            }
+        }        
+    }
+}

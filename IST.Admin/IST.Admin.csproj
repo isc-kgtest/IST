@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\IST.Contracts\IST.Contracts.csproj" />
+    <ProjectReference Include="..\IST.Core\IST.Core.csproj" />
+    <ProjectReference Include="..\IST.Server\IST.Server.csproj" />
+    <ProjectReference Include="..\IST.Services\IST.Services.csproj" />
+    <ProjectReference Include="..\IST.Shared\IST.Shared.csproj" />
+    <ProjectReference Include="..\IST.UI\IST.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ActualLab.Fusion.Blazor.Authentication" Version="12.2.4" />
+    <PackageReference Include="Sodium.Core" Version="1.4.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+</Project>

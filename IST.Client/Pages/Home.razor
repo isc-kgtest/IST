@@ -1,0 +1,68 @@
+@page "/"
+
+<PageTitle>IST Mini App</PageTitle>
+
+<div style="text-align: center; padding: 24px 0 32px;">
+    <div style="background: linear-gradient(135deg, #3390ec 0%, #2979d8 100%); border-radius: 50%; width: 96px; height: 96px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+        <MudIcon Icon="@Icons.Custom.Brands.Telegram" Style="font-size: 52px; color: white;" />
+    </div>
+    <MudText Typo="Typo.h4" Style="font-weight: 700;">IST Mini App</MudText>
+    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2">Authorized Telegram client portal</MudText>
+</div>
+
+<MudGrid Justify="Justify.Center" Class="mb-6">
+    <MudItem xs="12" sm="10" md="8">
+        <MudPaper Elevation="2" Class="pa-6" Style="border-radius: 16px;">
+            <MudText Typo="Typo.h6" Class="mb-4"><MudIcon Icon="@Icons.Material.Filled.Apps" Class="mr-2" />Features</MudText>
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <div class="d-flex align-center gap-3 mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Lock" Style="color: #3390ec;" />
+                        <div>
+                            <MudText Typo="Typo.body1"><b>Telegram Auth</b></MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Secure HMAC-SHA256 verified login</MudText>
+                        </div>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <div class="d-flex align-center gap-3 mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Sync" Style="color: #3390ec;" />
+                        <div>
+                            <MudText Typo="Typo.body1"><b>Real-time Sync</b></MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">ActualLab Fusion RPC</MudText>
+                        </div>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <div class="d-flex align-center gap-3 mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Speed" Style="color: #3390ec;" />
+                        <div>
+                            <MudText Typo="Typo.body1"><b>Blazor WASM</b></MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Fast client-side rendering</MudText>
+                        </div>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <div class="d-flex align-center gap-3 mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Security" Style="color: #3390ec;" />
+                        <div>
+                            <MudText Typo="Typo.body1"><b>CQRS Architecture</b></MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Vertical Slice pattern</MudText>
+                        </div>
+                    </div>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<div style="text-align: center;">
+    <MudButton Href="/tg-login"
+               Variant="Variant.Filled"
+               Color="Color.Info"
+               Size="Size.Large"
+               StartIcon="@Icons.Custom.Brands.Telegram"
+               Style="border-radius: 24px; padding: 12px 36px; font-size: 1rem; font-weight: 600;">
+        Login with Telegram
+    </MudButton>
+</div>
