@@ -1,4 +1,6 @@
 ﻿using ASIO10.Application.Common.Interfaces;
+using IST.Shared.DTOs.Common;
+using IST.Shared.Enums;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
