@@ -1,44 +1,54 @@
 using ActualLab.Fusion;
-using ActualLab.Rpc;
 using ActualLab.Fusion.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-
+using ActualLab.Rpc;
+using ISC.Academy.WEB.Extensions;
+using IST.Admin.Extensions;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 1. Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// MudBlazor
 builder.Services.AddMudServices();
 
-// 1. Configure standard Cookie Authentication
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/login";
-        options.AccessDeniedPath = "/access-denied";
-    });
+// 2. Custom Configurations
+builder.Services.AddDatabaseConfiguration(builder.Configuration);
+builder.Services.AddAuthenticationAndAuthorization(builder.Environment);
+builder.Services.AddRateLimitingConfiguration();
+builder.Services.AddApplicationServices();
 
-// 2. Configure Fusion as an RPC Client to connect to the Server
+// 3. Configure Fusion as an RPC Client
 var fusion = builder.Services.AddFusion();
-// Note: Depending on whether Admin is a connected client or a direct actor, we map Rpc. 
-// Assuming it uses Rpc over WebSocket to talk to IST.Server
-builder.Services.AddRpc().AddWebSocketClient("ws://localhost:5000"); // Update with actual IST.Server URL
+
+// Достаем URL из appsettings.json, а если его нет - используем fallback
+var rpcUrl = builder.Configuration["RpcServer:Url"] ?? "ws://localhost:5000";
+
+builder.Services.AddRpc()
+    .AddWebSocketClient(rpcUrl);
 
 // Configure ActualLab Auth client
 fusion.AddAuthClient();
 
 var app = builder.Build();
 
+// --- HTTP request pipeline ---
+app.UseEnhancedSecurityHeaders();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    // Хорошей практикой также является добавление HSTS в продакшене
+    app.UseHsts();
 }
 
 app.UseStaticFiles();
+
+app.UseRouting(); // Явно добавляем роутинг
+
+app.UseRateLimiter(); // ВАЖНО: Добавлено Middleware для лимитирования запросов!
+
 app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();

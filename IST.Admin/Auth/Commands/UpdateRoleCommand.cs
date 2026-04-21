@@ -1,11 +1,12 @@
 ﻿using ASIO10.Application.Common.Attributes;
 using ASIO10.Application.Common.Interfaces;
+using IST.Core.Entities.Auth;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
 namespace ASIO10.Auth.Commands;
 
-using ResponseModel = ASIO10.Domain.EntityModels.Auth.RoleEntity;
+using ResponseModel = RoleEntity;
 
 [AuthRole("admin")]
 public class UpdateRoleCommand : IRequest<ResponseDTO<ResponseModel>>, IAuthorizableRequest

@@ -1,48 +1,52 @@
-﻿namespace ASIO10.Auth.Queries;
+﻿using IST.Services.Features.Auth;
 
-using ASIO10.Application.Common.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using System.ComponentModel.DataAnnotations;
+namespace IST.Admin.Auth.Queries;
 
-using ResponseModel = Domain.EntityModels.Auth.UserEntity;
+using ResponseModel = ResponseDTO<UserEntity>;
 
-public class GetLoginQuery : IRequest<ResponseDTO<ResponseModel>>
+public class GetLoginQuery : ICommand<ResponseModel>
 {
     [Required(ErrorMessage = "Логин пользователя обязательно.")]
-    public string UserName { get; set; }
+    public string Login { get; set; }
 
     [Required(ErrorMessage = "Пароль обязателен.")]
     public string Password { get; set; }
 
-    public class Handler : IRequestHandler<GetLoginQuery, ResponseDTO<ResponseModel>>
+    public class Handler
     {
-        private readonly IAppDbContext _appDbContext;
+        private readonly IAuthService _authService;
 
-        public Handler(IAppDbContext appDbContext)
+        public Handler(IAuthService authService)
         {
-            _appDbContext = appDbContext;
+            _authService = authService;
         }
 
-        public async Task<ResponseDTO<ResponseModel>> Handle(GetLoginQuery request, CancellationToken cancellationToken)
+        [CommandHandler]
+        public async Task<ResponseModel> Handle(GetLoginQuery request, CancellationToken cancellationToken)
         {
-            var user = await _appDbContext.Users.AsNoTracking()
-                .Include(x => x.UserRoles).ThenInclude(t => t.Role)
-                //.Include(x => x.UserRoles).ThenInclude(t => t.Where(x => !x.Role.Disabled).Select(r => r.Role))
-                .FirstOrDefaultAsync(x => x.UserName == request.UserName, cancellationToken);
+            var user = await _authService.GetUserByLoginAsync(request.Login, request.Password, cancellationToken);
 
-            var passValid = PasswordUtils.VerifyPassword(request.Password, user?.Password ?? null);
+            if(user is null)
+            {
+                return new()
+                {
+                    Status = false,
+                    StatusMessage = "Неверный логин",
+                    StatusCode = ResponseStatusCode.NotFound
+                };
+            }
+
+            var passValid = PasswordUtils.VerifyPassword(request.Password, user.Password);
 
             (string message, ResponseStatusCode statusCode) = true switch
             {
-                _ when user is null
-                    => ("Неверный логин", ResponseStatusCode.NotFound),
                 _ when !passValid
                     => ("Неверный пароль", ResponseStatusCode.ValidationError),
-                _ when user.Disabled
+                _ when user.IsActive
                     => ("Ваша учетная запись отключена. Пожалуйста, свяжитесь с администратором.", ResponseStatusCode.Unauthorized),
                 _ when user.PasswordExpiryDate < DateTime.UtcNow
                     => ("Срок действия пароля пользователя истек.", ResponseStatusCode.PasswordExpired),
-                // Случай по умолчанию: все проверки пройдены
+                // все проверки пройдены
                 _ => ("Валидация пройдена успешно.", ResponseStatusCode.Ok)
             };
            

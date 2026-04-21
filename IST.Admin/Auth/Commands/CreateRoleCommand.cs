@@ -1,13 +1,13 @@
 ﻿using ASIO10.Application.Common.Attributes;
 using ASIO10.Application.Common.Interfaces;
 using ASIO10.Auth.Models;
-using ASIO10.Domain.EntityModels.Auth;
+using IST.Core.Entities.Auth;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
 namespace ASIO10.Auth.Commands;
 
-using ResponseModel = ASIO10.Domain.EntityModels.Auth.RoleEntity;
+using ResponseModel = RoleEntity;
 
 [AuthRole("admin")]
 public class CreateRoleCommand : IRequest<ResponseDTO<ResponseModel>>, IAuthorizableRequest

@@ -1,13 +1,13 @@
 ﻿using ASIO10.Application.Common.Attributes;
 using ASIO10.Application.Common.Interfaces;
 using ASIO10.Auth.Models;
-using ASIO10.Domain.EntityModels.Auth;
+using IST.Core.Entities.Auth;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
 namespace ASIO10.Auth.Queries;
 
-using ResponseModel = ASIO10.Domain.EntityModels.Auth.UserRolesEntity;
+using ResponseModel = UserRolesEntity;
 
 [AuthRole("admin")]
 public class DeleteUserRoleCommand : IRequest<ResponseDTO<ResponseModel>>, IAuthorizableRequest

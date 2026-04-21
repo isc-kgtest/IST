@@ -1,28 +1,26 @@
-﻿namespace ASIO10.Auth.Queries;
+﻿using IST.Services.Features.Auth;
 
-using ASIO10.Application.Common.Attributes;
-using ASIO10.Application.Common.Interfaces;
-using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
+namespace IST.Admin.Auth.Queries;
 
-using ResponseModel = List<Domain.EntityModels.Auth.RoleEntity>;
+using ResponseModel = ResponseDTO<List<RoleEntity>>;
 
-[AuthRole("admin")]
-public class GetAllRolesQuery : IRequest<ResponseDTO<ResponseModel>>, IAuthorizableRequest
+public class GetAllRolesQuery : ICommand<ResponseModel>
 {
-    public required UserProfile UserProfile { get; set; }
-    public class Handler : IRequestHandler<GetAllRolesQuery, ResponseDTO<ResponseModel>>
-    {
-        private readonly IAppDbContext _appDbContext;
+    //public required UserProfile UserProfile { get; set; }
 
-        public Handler(IAppDbContext appDbContext)
+    public class Handler
+    {
+        private readonly IAuthService _authService;
+
+        public Handler(IAuthService authService)
         {
-            _appDbContext = appDbContext;
+            _authService = authService;
         }
 
-        public async Task<ResponseDTO<ResponseModel>> Handle(GetAllRolesQuery request, CancellationToken cancellationToken)
+        [CommandHandler]
+        public async Task<ResponseModel> Handle(GetAllRolesQuery request, CancellationToken cancellationToken)
         {
-            var roles = await _appDbContext.Roles.AsNoTracking().ToListAsync();
+            var roles = await _authService.GetAllRolesAsync(cancellationToken);
 
             return roles is not null ?
             new()

@@ -1,16 +1,10 @@
-﻿using ASIO10.Application.Common.Attributes;
-using ASIO10.Application.Common.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using System.ComponentModel.DataAnnotations;
+﻿namespace IST.Admin.Auth.Commands;
 
-namespace ASIO10.Auth.Queries;
+using ResponseModel = ResponseDTO<UserEntity>;
 
-using ResponseModel = ASIO10.Domain.EntityModels.Auth.UserEntity;
-
-[AuthRole("admin")]
-public class UpdateUserCommand : IRequest<ResponseDTO<ResponseModel>>, IAuthorizableRequest
+public class UpdateUserCommand : ICommand<ResponseDTO<ResponseModel>>
 {
-    public Ulid Id { get; set; }
+    public Guid Id { get; set; }
 
     [Required(ErrorMessage = "Логин пользователя обязательно.")]
     [StringLength(50, ErrorMessage = "Логин должен содержать от 3 до 50 символов.", MinimumLength = 3)]

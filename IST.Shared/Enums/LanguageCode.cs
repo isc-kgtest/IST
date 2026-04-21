@@ -1,5 +1,4 @@
-﻿
-namespace KZML.Shared.Enums;
+﻿namespace IST.Shared.Enums;
 
 public enum LanguageCode
 {

@@ -1,0 +1,22 @@
+﻿<MudDialog>
+    <DialogContent>
+        @ChildContent
+    </DialogContent>
+    <DialogActions>
+        @ButtonOk
+        @ButtonCancel
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? ButtonOk { get; set; }
+
+    [Parameter]
+    public RenderFragment? ButtonCancel { get; set; }
+
+    [CascadingParameter] public IMudDialogInstance MudDialog { get; set; } = default!;
+}

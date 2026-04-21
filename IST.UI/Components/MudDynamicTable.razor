@@ -1,0 +1,136 @@
+﻿@using IST.UI.Models
+
+﻿<MudTable Elevation="@Elevation" ServerData="ServerReload" Dense="true" Hover="true" @ref="table" HorizontalScrollbar="true">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">@Title</MudText>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s => OnSearch(s))" Placeholder="Поиск"
+        Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+        IconSize="Size.Medium" Class="mt-0" />
+
+        @AddButton
+            
+    </ToolBarContent>
+    <HeaderContent>
+        @foreach (var col in ColumnNames)
+        {            
+            if (col != "FunctionMenu")
+            {
+                <MudTh>@col</MudTh>
+            }
+            else
+            {
+                <MudTh Class="d-flex justify-end">Функции</MudTh>
+            }
+        }        
+    </HeaderContent>
+    <RowTemplate>
+        @foreach (var col in ColumnNames)
+        {
+            if (col != "FunctionMenu")
+            {
+                <MudTd DataLabel="@col">@context[col]</MudTd>
+            }
+            else
+            {
+                <MudTd DataLabel="Функции" Class="d-flex justify-end">
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size=Size.Small Color="Color.Primary"
+                             AriaLabel="Open user menu" Dense="true" AnchorOrigin="Origin.TopLeft" TransformOrigin="Origin.TopRight">
+                        @foreach (var item in (List<MenuItemModel>)context[col])
+                        {
+                            <MudMenuItem OnClick="@item.OnClickAsync">
+                                @item.Label
+                            </MudMenuItem>
+                        }
+                    </MudMenu>
+                </MudTd>
+            }            
+        }
+        
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText>Пусто</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText>Загрузка...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager RowsPerPageString="Строк на странице" InfoFormat="{first_item}-{last_item} из {all_items}" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = "Content";
+
+    [Parameter]
+    public int Elevation { get; set; } = 0;
+
+    [Parameter]
+    public RenderFragment? AddButton { get; set; }
+
+    [Parameter] 
+    public List<Dictionary<string, object>> Items { get; set; } = new();
+
+    private List<Dictionary<string, object>> _previousItems;
+
+    private MudTable<Dictionary<string, object>> table;
+
+    private List<string> ColumnNames = new();
+    private int totalItems;
+    private string searchString;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Если данные изменились — обновляем таблицу
+        if (!ReferenceEquals(_previousItems, Items) && Items != null)
+        {
+            _previousItems = Items;
+            await ReloadTable();
+        }
+    }
+
+    public async Task ReloadTable()
+    {
+        if (table != null)
+            await table.ReloadServerData();
+    }
+
+    private async Task<TableData<Dictionary<string, object>>> ServerReload(TableState state, CancellationToken token)
+    {
+        await Task.Delay(300);
+        if (Items == null || Items.Count == 0)
+        {
+            ColumnNames = new();
+            return new TableData<Dictionary<string, object>>() { TotalItems = 0, Items = new List<Dictionary<string, object>>() };
+        }
+
+        ColumnNames = Items.First().Keys.ToList();
+
+        var filtered = Items.Where(row =>
+        {
+            if (string.IsNullOrWhiteSpace(searchString))
+                return true;
+            return row.Values.Any(val => val?.ToString()?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true);
+        }).ToList();
+
+        totalItems = filtered.Count;
+
+        var pageData = filtered
+            .Skip(state.Page * state.PageSize)
+            .Take(state.PageSize)
+            .ToList();
+
+        return new TableData<Dictionary<string, object>>()
+        {
+            TotalItems = totalItems,
+            Items = pageData
+        };
+    }
+
+    private void OnSearch(string text)
+    {
+        searchString = text;
+        table.ReloadServerData();
+    }
+}

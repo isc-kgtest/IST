@@ -1,0 +1,1 @@
+﻿global using IST.Core.Entities.BaseEntities;

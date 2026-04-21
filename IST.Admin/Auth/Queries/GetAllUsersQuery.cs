@@ -1,28 +1,25 @@
-﻿namespace ASIO10.Auth.Queries;
+﻿using IST.Services.Features.Auth;
 
-using ASIO10.Application.Common.Attributes;
-using ASIO10.Application.Common.Interfaces;
-using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
+namespace IST.Admin.Auth.Queries;
 
-using ResponseModel = List<Domain.EntityModels.Auth.UserEntity>;
+using ResponseModel = ResponseDTO<List<UserEntity>>;
 
-[AuthRole("admin")]
-public class GetAllUsersQuery : IRequest<ResponseDTO<ResponseModel>>, IAuthorizableRequest
+public class GetAllUsersQuery : ICommand<ResponseModel>
 {
-    public required UserProfile UserProfile { get; set; }
-    public class Handler : IRequestHandler<GetAllUsersQuery, ResponseDTO<ResponseModel>>
+    //public required UserProfile UserProfile { get; set; }
+    public class Handler
     {
-        private readonly IAppDbContext _appDbContext;
+        private readonly IAuthService _authService;
 
-        public Handler(IAppDbContext appDbContext)
+        public Handler(IAuthService authService)
         {
-            _appDbContext = appDbContext;
+            _authService = authService;
         }
 
-        public async Task<ResponseDTO<ResponseModel>> Handle(GetAllUsersQuery request, CancellationToken cancellationToken)
+        [CommandHandler]
+        public async Task<ResponseModel> Handle(GetAllUsersQuery request, CancellationToken cancellationToken)
         {
-            var users = await _appDbContext.Users.AsNoTracking().ToListAsync();
+            var users = await _authService.GetAllUsersAsync(cancellationToken);
 
             return users is not null ?
             new()
