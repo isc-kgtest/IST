@@ -1,24 +1,27 @@
-using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using ActualLab.Fusion;
-using ActualLab.Rpc;
-using ActualLab.Fusion.Authentication;
+using IST.Client.Components;
 
-using MudBlazor.Services;
+var builder = WebApplication.CreateBuilder(args);
 
-var builder = WebAssemblyHostBuilder.CreateDefault(args);
-builder.RootComponents.Add<IST.Client.App>("#app");
-builder.RootComponents.Add<HeadOutlet>("head::after");
+// Add services to the container.
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
 
-var fusion = builder.Services.AddFusion();
+var app = builder.Build();
 
-// 1. Connection to the Server via ActualLab RPC WebSockets
-builder.Services.AddRpc().AddWebSocketClient("ws://localhost:5000"); // Update with actual IST.Server URL
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
+}
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseHttpsRedirection();
 
-// MudBlazor
-builder.Services.AddMudServices();
+app.UseAntiforgery();
 
-// 2. Set up ActualLab Auth Client
-fusion.AddAuthClient();
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
-await builder.Build().RunAsync();
+app.Run();
