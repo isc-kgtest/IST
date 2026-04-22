@@ -1,7 +1,3 @@
-using ActualLab.Fusion;
-using ActualLab.Fusion.Authentication;
-using ActualLab.Rpc;
-using ISC.Academy.WEB.Extensions;
 using IST.Admin.Extensions;
 using MudBlazor.Services;
 
@@ -14,27 +10,14 @@ builder.Services.AddRazorComponents()
 builder.Services.AddMudServices();
 
 // 2. Custom Configurations
-builder.Services.AddDatabaseConfiguration(builder.Configuration);
 builder.Services.AddAuthenticationAndAuthorization(builder.Environment);
 builder.Services.AddRateLimitingConfiguration();
-builder.Services.AddApplicationServices();
-
-// 3. Configure Fusion as an RPC Client
-var fusion = builder.Services.AddFusion();
-
-// Достаем URL из appsettings.json, а если его нет - используем fallback
-var rpcUrl = builder.Configuration["RpcServer:Url"] ?? "ws://localhost:5000";
-
-builder.Services.AddRpc()
-    .AddWebSocketClient(rpcUrl);
-
-// Configure ActualLab Auth client
-fusion.AddAuthClient();
+builder.Services.AddApplicationServices(builder.Configuration);
 
 var app = builder.Build();
 
 // --- HTTP request pipeline ---
-app.UseEnhancedSecurityHeaders();
+//app.UseEnhancedSecurityHeaders();
 
 if (!app.Environment.IsDevelopment())
 {

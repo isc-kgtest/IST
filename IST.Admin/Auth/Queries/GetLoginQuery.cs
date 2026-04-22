@@ -1,4 +1,4 @@
-﻿using IST.Services.Features.Auth;
+﻿using IST.Contracts.Features.Auth;
 
 namespace IST.Admin.Auth.Queries;
 
@@ -24,7 +24,7 @@ public class GetLoginQuery : ICommand<ResponseModel>
         [CommandHandler]
         public async Task<ResponseModel> Handle(GetLoginQuery request, CancellationToken cancellationToken)
         {
-            var user = await _authService.GetUserByLoginAsync(request.Login, request.Password, cancellationToken);
+            var user = await _authService.GetUserByLoginAsync(request.Login, cancellationToken);
 
             if(user is null)
             {

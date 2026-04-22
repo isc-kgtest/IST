@@ -7,9 +7,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ActualLab.Fusion.EntityFramework" Version="12.2.4" />
-    <PackageReference Include="ActualLab.Fusion.EntityFramework.Npgsql" Version="12.2.4" />
-    <PackageReference Include="ActualLab.Fusion.Ext.Services" Version="12.2.4" />
 	<PackageReference Include="Sodium.Core" Version="1.4.0" />
   </ItemGroup>
 

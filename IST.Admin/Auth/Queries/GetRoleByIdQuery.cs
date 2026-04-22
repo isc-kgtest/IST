@@ -1,7 +1,6 @@
 ﻿namespace ASIO10.Auth.Queries;
 
-using IST.Services.Features.Auth;
-
+using IST.Contracts.Features.Auth;
 using ResponseModel = ResponseDTO<RoleEntity>;
 
 public class GetRoleByIdQuery : ICommand<ResponseModel>

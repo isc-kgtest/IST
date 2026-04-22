@@ -13,4 +13,9 @@
     <PackageReference Include="System.Reactive" Version="6.1.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\IST.Core\IST.Core.csproj" />
+    <ProjectReference Include="..\IST.Shared\IST.Shared.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -1,10 +1,4 @@
-﻿using ASIO10.Application.Common.Attributes;
-using ASIO10.Application.Common.Interfaces;
-using ASIO10.Auth.Models;
-using ASIO10.Domain.EntityModels.Auth;
-using System.ComponentModel.DataAnnotations;
-
-namespace ASIO10.Auth.Queries;
+﻿namespace ASIO10.Auth.Queries;
 
 using ResponseModel = string;
 

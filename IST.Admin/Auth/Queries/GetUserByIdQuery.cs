@@ -1,6 +1,6 @@
 ﻿namespace IST.Admin.Auth.Queries;
 
-using IST.Services.Features.Auth;
+using IST.Contracts.Features.Auth;
 using ResponseModel = ResponseDTO<UserEntity>;
 
 public class GetUserByIdQuery : ICommand<ResponseModel>

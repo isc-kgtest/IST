@@ -1,4 +1,4 @@
-﻿using IST.Services.Features.Auth;
+﻿using IST.Contracts.Features.Auth;
 
 namespace IST.Admin.Auth.Queries;
 

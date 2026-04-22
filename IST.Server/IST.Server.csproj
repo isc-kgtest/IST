@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\IST.Services\IST.Services.csproj" />
@@ -6,8 +6,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ActualLab.Fusion.Server" Version="12.2.4" />
-    <PackageReference Include="ActualLab.Rpc.Server" Version="12.2.4" />
+    <PackageReference Include="ActualLab.Fusion.Server" Version="12.3.70" />
+    <PackageReference Include="ActualLab.Fusion.Blazor.Authentication" Version="12.3.70" />
+    <PackageReference Include="ActualLab.Rpc.Server" Version="12.3.70" />
+	<PackageReference Include="ActualLab.Fusion.EntityFramework" Version="12.3.70" />
+	<PackageReference Include="ActualLab.CommandR" Version="12.3.70" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

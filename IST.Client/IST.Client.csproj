@@ -13,9 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\IST.Contracts\IST.Contracts.csproj" />
-    <ProjectReference Include="..\IST.Infrastructure\IST.Infrastructure.csproj" />
     <ProjectReference Include="..\IST.Server\IST.Server.csproj" />
-    <ProjectReference Include="..\IST.Services\IST.Services.csproj" />
     <ProjectReference Include="..\IST.Shared\IST.Shared.csproj" />
     <ProjectReference Include="..\IST.UI\IST.UI.csproj" />
   </ItemGroup>

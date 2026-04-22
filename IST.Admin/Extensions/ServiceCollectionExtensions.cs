@@ -1,22 +1,13 @@
-using IST.Infrastructure.AppDbContext;
+using ActualLab.Fusion;
+using ActualLab.Rpc;
+using IST.Contracts.Features.Auth;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
 
 namespace IST.Admin.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddDatabaseConfiguration(this IServiceCollection services, IConfiguration configuration)
-    {
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
-
-        services.AddDbContextFactory<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
-
-        return services;
-    }
-
     public static IServiceCollection AddAuthenticationAndAuthorization(this IServiceCollection services, IWebHostEnvironment env)
     {
         services.AddCascadingAuthenticationState();
@@ -68,9 +59,21 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration config)
     {
-        // Здесь будут твои сервисы (NewsService, UserService и т.д.)
+        var fusion = services.AddFusion();
+        var rpc = services.AddRpc();
+
+        var rpcUrl = config["RpcServer:Url"] ?? "ws://localhost:5000";
+
+        rpc.AddWebSocketClient(rpcUrl);
+
+        // 🔥 только прокси
+        rpc.AddClient<IAuthQueries>();
+
+        // 🔥 команды
+        services.AddCommander();
+
         return services;
     }
 }
