@@ -25,7 +25,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    // ⚙️ ЕДИНАЯ ТОЧКА СБОРКИ ВСЕГО
+    // ЕДИНАЯ ТОЧКА СБОРКИ ВСЕГО
     public static IServiceCollection AddAppServices(this IServiceCollection services)
     {
         // 🔹 Core builders — ОДИН РАЗ

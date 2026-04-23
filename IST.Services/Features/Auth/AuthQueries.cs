@@ -10,7 +10,6 @@ public class AuthQueries : IAuthQueries
 
     public AuthQueries(DbHub<AppDbContext> dbHub) => _dbHub = dbHub;
 
-
     [ComputeMethod]
     public virtual async Task<UserEntity?> GetUserByLoginAsync(string login, CancellationToken cancellationToken = default)
     {

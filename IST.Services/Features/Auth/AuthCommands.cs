@@ -1,9 +1,11 @@
 ﻿using ActualLab.CommandR.Configuration;
+using ActualLab.Fusion.Authentication;
 using IST.Contracts.Features.Auth;
 using IST.Contracts.Features.Auth.Commands;
 using IST.Core.Entities.Auth;
 using IST.Infrastructure.Security;
 using IST.Shared.DTOs.Auth;
+using IST.Shared.Enums;
 
 namespace IST.Services.Features.Auth;
 
@@ -11,11 +13,13 @@ public class AuthCommands : IAuthCommands
 {
     private readonly DbHub<AppDbContext> _dbHub;
     private readonly IAuthQueries _queries;
+    private readonly IAuth _auth;
 
-    public AuthCommands(DbHub<AppDbContext> dbHub, IAuthQueries queries)
+    public AuthCommands(DbHub<AppDbContext> dbHub, IAuthQueries queries, IAuth auth)
     {
         _dbHub = dbHub;
         _queries = queries;
+        _auth = auth;
     }
 
     // Users
@@ -197,46 +201,229 @@ public class AuthCommands : IAuthCommands
             }
         };
     }
+
     [CommandHandler]
-    public virtual async Task<bool> DeleteUserAsync(UserEntity user, CancellationToken cancellationToken = default)
+    public virtual async Task<ResponseDTO<string>> DeleteUserAsync(DeleteUserCommand command, Session session,CancellationToken cancellationToken = default)
     {
+        // 1. Инвалидация
+        if (Invalidation.IsActive)
+        {
+            _ = _queries.GetAllUsersAsync(default);
+            _ = _queries.GetUserByIdAsync(command.UserId, default);
+            _ = _queries.GetUserByLoginAsync(string.Empty, default);
+            return default!;
+        }
+
+        // 2. ПОЛУЧАЕМ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ИЗ СЕССИИ
+        var currentUser = await _auth.GetUser(session, cancellationToken);
+
+        // Предполагаю, что command.UserId у тебя Guid или число, поэтому приводим к строке:
+        bool isSelfDelete = currentUser?.Id == command.UserId.ToString();
+
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
-        dbContext.Users.Remove(user);
-        var changes = await dbContext.SaveChangesAsync(cancellationToken);
+        var userToDelete = await dbContext.Users.Include(u => u.UserRoles)
+            .FirstOrDefaultAsync(u => u.Id == command.UserId, cancellationToken);
 
-        if (changes > 0)
-            InvalidateUserCache(user);
+        // Выполняем проверку и сразу получаем сообщение и код статуса
+        (string message, ResponseStatusCode statusCode) = (true) switch
+        {
+            _ when userToDelete is null
+               => ("Ресурс не найден", ResponseStatusCode.NotFound),
 
-        return changes > 0;
+            // Проверка: попытка удалить самого себя
+            _ when isSelfDelete
+                => ("Нельзя удалить собственную учётную запись.", ResponseStatusCode.ValidationError),
+
+            // В остальных случаях считаем, что валидация прошла успешно
+            _ => ("Валидация пройдена успешно.", ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode,
+            };
+        }
+
+        userToDelete.IsDeleted = true;
+
+        foreach (var userRole in userToDelete.UserRoles)
+        {
+            userRole.IsDeleted = true;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new()
+        {
+            Status = true,
+            StatusMessage = "Ok",
+            Data = userToDelete.FullName
+        };
     }
 
     [CommandHandler]
-    public virtual async Task<string> ChangeUserPasswordAsync(Guid userId, string hashedNewPassword, DateTime passwordExpiryDate, CancellationToken cancellationToken = default)
+    public virtual async Task<ResponseDTO<string>> ChangeUserPasswordAsync(ChangeUserPasswordCommand command, CancellationToken cancellationToken = default)
     {
+        if (Invalidation.IsActive)
+        {
+            _ = _queries.GetAllUsersAsync(default);
+            _ = _queries.GetUserByLoginAsync(command.Request.Login, default);
+            return default!;
+        }
+        // Сразу деконструируем результат в переменные с понятными именами
+        (string message, ResponseStatusCode statusCode) = true switch
+        {
+            // Проверка на совпадение со старым паролем
+            _ when command.Request.CurrentPassword == command.Request.NewPassword
+                => ("Новый пароль не должен совпадать с текущим.", ResponseStatusCode.ValidationError),
+
+            // Проверка на совпадение с подтверждением
+            _ when command.Request.ConfirmPassword != command.Request.NewPassword
+                => ("Новый пароль и его подтверждение не совпадают.", ResponseStatusCode.ValidationError),
+
+            // Случай по умолчанию: все проверки пройдены
+            _ => ("Валидация пройдена успешно.", ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode,
+            };
+        }
+
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
-        var user = await dbContext.Users.FindAsync(new object[] { userId }, cancellationToken);
+        var user = await dbContext.Users.FirstOrDefaultAsync(x => x.Login == command.Request.Login, cancellationToken);
 
-        if (user != null)
+        var passValid = PasswordUtils.VerifyPassword(command.Request.CurrentPassword, user?.Password ?? null);
+
+        (message, statusCode) = true switch
         {
-            user.Password = hashedNewPassword;
-            user.PasswordExpiryDate = passwordExpiryDate;
+            _ when user is null
+                => ("Неверный логин", ResponseStatusCode.NotFound),
+
+            _ when !user.IsActive
+                => ("Ваша учетная запись отключена. Пожалуйста, свяжитесь с администратором.", ResponseStatusCode.Unauthorized),
+
+            _ when !passValid
+                => ("Неверный пароль", ResponseStatusCode.Unauthorized),
+
+            // Случай по умолчанию: все проверки пройдены
+            _ => ("Валидация пройдена успешно.", ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode
+            };
+        }
+        else
+        {
+            user.Password = PasswordUtils.HashPassword(command.Request.NewPassword);
+            user.PasswordExpiryDate = DateTime.UtcNow.AddMonths(3);
+
+            dbContext.Users.Update(user);
 
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            InvalidateUserCache(user);
-
-            return user.Login;
+            return new()
+            {
+                Data = user.Login,
+                Status = true,
+                StatusMessage = "Пароль успешно изменен",
+                StatusCode = ResponseStatusCode.Ok
+            };
         }
-
-        return string.Empty;
     }
 
     [CommandHandler]
-    public virtual async Task<string> ResetUserPasswordAsync(Guid userId, string hashedNewPassword, DateTime passwordExpiryDate, CancellationToken cancellationToken = default)
+    public virtual async Task<ResponseDTO<string>> ResetUserPasswordAsync(ResetUserPasswordCommand command, CancellationToken cancellationToken = default)
     {
-        return await ChangeUserPasswordAsync(userId, hashedNewPassword, passwordExpiryDate, cancellationToken);
+        if (Invalidation.IsActive)
+        {
+            _ = _queries.GetAllUsersAsync(default);
+            _ = _queries.GetUserByLoginAsync(command.Request.Login, default);
+            return default!;
+        }
+
+        // Сразу деконструируем результат в переменные с понятными именами
+        (string message, ResponseStatusCode statusCode) = true switch
+        {
+            // Проверка на совпадение с подтверждением
+            _ when command.Request.ConfirmPassword != command.Request.NewPassword
+                => ("Новый пароль и его подтверждение не совпадают.", ResponseStatusCode.ValidationError),
+
+            // Случай по умолчанию: все проверки пройдены
+            _ => ("Валидация пройдена успешно.", ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode,
+            };
+        }
+
+        await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
+
+        var user = await dbContext.Users.FirstOrDefaultAsync(x => x.Login == command.Request.Login, cancellationToken);
+
+
+        (message, statusCode) = true switch
+        {
+            _ when user is null
+                => ("Неверный логин", ResponseStatusCode.NotFound),
+
+            _ when !user.IsActive
+                => ("Ваша учетная запись отключена. Пожалуйста, свяжитесь с администратором.", ResponseStatusCode.Forbidden),
+
+            // Случай по умолчанию: все проверки пройдены
+            _ => ("Валидация пройдена успешно.", ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode
+            };
+        }
+        else
+        {
+            user.Password = PasswordUtils.HashPassword(command.Request.NewPassword);
+            user.PasswordExpiryDate = command.Request.ResetPassword ? DateTime.UtcNow.AddMonths(-1) : DateTime.UtcNow.AddMonths(6);
+
+            dbContext.Users.Update(user);
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return new()
+            {
+                Data = user.Login,
+                Status = true,
+                StatusMessage = "Пароль успешно изменен",
+                StatusCode = ResponseStatusCode.Ok
+            };
+        }
+
     }    
 
     // Roles

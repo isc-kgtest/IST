@@ -10,9 +10,9 @@ public interface IAuthCommands : ICommandService
     //Users
     Task<ResponseDTO<UserResponseDTO>> CreateUserAsync(CreateUserCommand command, CancellationToken cancellationToken = default);
     Task<ResponseDTO<UserResponseDTO>> UpdateUserAsync(UpdateUserCommand command, CancellationToken cancellationToken = default);
-    Task<bool> DeleteUserAsync(UserEntity user, CancellationToken cancellationToken = default);
-    Task<string> ChangeUserPasswordAsync(Guid userId, string hashedNewPassword, DateTime passwordExpiryDate, CancellationToken cancellationToken = default);
-    Task<string> ResetUserPasswordAsync(Guid userId, string hashedNewPassword, DateTime passwordExpiryDate, CancellationToken cancellationToken = default);
+    Task<ResponseDTO<string>> DeleteUserAsync(DeleteUserCommand command, Session session, CancellationToken cancellationToken = default);
+    Task<ResponseDTO<string>> ChangeUserPasswordAsync(ChangeUserPasswordCommand command, CancellationToken cancellationToken = default);
+    Task<ResponseDTO<string>> ResetUserPasswordAsync(ResetUserPasswordCommand command, CancellationToken cancellationToken = default);
 
     //Roles
     Task<RoleEntity> CreateRoleAsync(RoleEntity role, CancellationToken cancellationToken = default);
