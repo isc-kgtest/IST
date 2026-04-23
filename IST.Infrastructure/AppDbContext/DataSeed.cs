@@ -33,7 +33,6 @@ public static class DataSeed
                 Surname = "Системов", // Добавил обязательные поля
                 Name = "Админ",
                 Patronymic = "Админович",
-                FullName = "super admin",
                 Position = "Системный администратор",
                 Department = "IT Отдел",
                 EMail = "admin@system.local",
