@@ -1,0 +1,123 @@
+﻿
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+
+<PageTitle>Авторизация</PageTitle>
+<MudStack Justify="Justify.Center" AlignItems="AlignItems.Center" Style="height: 90vh;">
+<EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+    <DataAnnotationsValidator />
+    <div class="d-flex justify-center">
+        <MudPaper Class="py-8 px-10" MinWidth="400px" Elevation="1" >
+            <div>
+                <h2>Авторизация</h2>
+            </div>
+            <div class="d-flex flex-column gap-4">
+                <div>
+                    <MudTextField @bind-Value="loginModel.UserName" Label="Логин" Variant="Variant.Text"
+                                      For="@(() => loginModel.UserName)" autocomplete="off" />
+                </div>
+                <div>
+                    <MudTextField @bind-Value="loginModel.Password" Label="Пароль" Variant="Variant.Text"
+                                For="@(() => loginModel.Password)"
+                                      InputType="@CurrentPassword.Type" Adornment="Adornment.End" AdornmentIcon="@CurrentPassword.Icon" OnAdornmentClick="() => ShowPassword(CurrentPassword)" AdornmentAriaLabel="Show Password" autocomplete="new-password"/>
+                </div>
+            </div>
+           
+            <div class="mt-4">
+                <MudButton ButtonType="ButtonType.Submit" 
+                    Variant="Variant.Filled" 
+                    Color="Color.Info">
+                    Войти</MudButton>
+            </div>
+            <MudProgressLinear Color="Color.Info" Indeterminate="_isProcessing" Class="mt-6" />
+        </MudPaper>
+    </div>
+</EditForm>
+</MudStack>
+
+@inject AuthenticationStateProvider AuthStateProvider
+
+@code {
+    private GetLoginQuery loginModel = new();
+    private bool _isProcessing = false;
+
+    private class PasswordFieldState
+    {
+        public InputType Type { get; set; } = InputType.Password;
+        public string Icon { get; set; } = Icons.Material.Filled.VisibilityOff;
+    }
+
+    private PasswordFieldState CurrentPassword { get; set; } = new();
+
+    void ShowPassword(PasswordFieldState field)
+    {
+        if (field.Type == InputType.Password)
+        {
+            field.Type = InputType.Text;
+            field.Icon = Icons.Material.Filled.Visibility;
+        }
+        else
+        {
+            field.Type = InputType.Password;
+            field.Icon = Icons.Material.Filled.VisibilityOff;
+        }
+
+        // Нужно обновить состояние компонента, чтобы изменения отразились
+        StateHasChanged();
+    }
+
+    // Получаем значение по имени
+    [CascadingParameter(Name = "UserProfile")]
+    private Guid SessionUserId { get; set; }
+
+    private async Task HandleLogin()
+    {
+        _isProcessing = true;
+
+        var jsResponse = await _js.InvokeAsync<JsLoginResponse>("authHelper.loginWithCookie", loginModel);
+        if (jsResponse.Ok)
+        {
+            if (jsResponse?.ResponseDto?.Status == true)
+            {
+                _navManager.NavigateTo("/", forceLoad: true);
+            }
+            else
+            if (jsResponse.ResponseDto.StatusCode == ResponseStatusCode.PasswordExpired)
+            {
+                _snackbar.Add(jsResponse.ResponseDto.StatusMessage, Severity.Warning);
+
+                IDialogReference dialogRef = default!;
+                void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+                void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+                var parameters = new DialogParameters
+                {
+                    ["ChildContent"] = (RenderFragment)(builder =>
+                    {
+                        builder.OpenComponent<ChangePasswordForm>(0); // Правильный способ добавить компонент
+                        builder.AddAttribute(1, "UserName", loginModel.UserName);
+                        builder.CloseComponent();
+                    }),
+                };
+
+                var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, BackdropClick = false };
+
+                dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Смена пароля", parameters, options);
+
+                var result = await dialogRef.Result;
+            }
+            else
+            {
+                _snackbar.Add(jsResponse?.ResponseDto?.StatusMessage ?? "Логин или пароль не верный!", Severity.Warning);
+            }
+        }
+        else
+        {
+            _snackbar.Add("Логин или пароль не верный!", Severity.Warning);            
+        }
+
+        StateHasChanged();
+        _isProcessing = false;
+    }
+}
+
