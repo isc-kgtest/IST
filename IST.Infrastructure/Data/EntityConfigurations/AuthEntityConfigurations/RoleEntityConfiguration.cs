@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace IST.Infrastructure.AppDbContext.EntityConfigurations.AuthEntityConfigurations;
+namespace IST.Infrastructure.Data.EntityConfigurations.AuthEntityConfigurations;
 
 public class RoleEntityConfiguration : IEntityTypeConfiguration<RoleEntity>
 {

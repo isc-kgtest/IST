@@ -13,6 +13,11 @@ var app = builder.Build();
 app.UseWebSockets();
 app.UseRouting();
 
+
+// Добавляем эти слои, чтобы контекст пользователя был доступен
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapRpcWebSocketServer();
 
 app.Run();

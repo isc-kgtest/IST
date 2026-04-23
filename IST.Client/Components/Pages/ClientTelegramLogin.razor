@@ -76,11 +76,11 @@
         _errorMessage = "";
         try
         {
-            // В реальности initData берётся через JSInterop из window.Telegram.WebApp.initData
-            var simulatedInitData = "query_id=xxx&user=%7B%22id%22%3A123456789%7D&auth_date=1600000000&hash=valid_hash";
-            var session = SessionResolver.Session;
-            var cmd = new LoginTelegramCmd(session, simulatedInitData);
-            await Commander.Call(cmd);
+            // // В реальности initData берётся через JSInterop из window.Telegram.WebApp.initData
+            // var simulatedInitData = "query_id=xxx&user=%7B%22id%22%3A123456789%7D&auth_date=1600000000&hash=valid_hash";
+            // var session = SessionResolver.Session;
+            // var cmd = new LoginTelegramCmd(session, simulatedInitData);
+            // await Commander.Call(cmd);
             _success = true;
         }
         catch (Exception)

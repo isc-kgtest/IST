@@ -3,6 +3,7 @@ using ActualLab.Fusion.Authentication;
 using IST.Contracts.Features.Auth;
 using IST.Contracts.Features.Auth.Commands;
 using IST.Core.Entities.Auth;
+using IST.Infrastructure.Data;
 using IST.Infrastructure.Security;
 using IST.Shared.DTOs.Auth;
 using IST.Shared.Enums;

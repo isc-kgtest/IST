@@ -5,4 +5,4 @@ public record DeleteUserCommand(
     [property: DataMember] Session Session,
     [Required(ErrorMessage = "Id обязательно.")]
     [property: DataMember] Guid UserId
-) : ICommand<ResponseDTO<bool>>;
+) : ICommand<ResponseDTO<string>>;
