@@ -1,4 +1,5 @@
 ﻿
+@using IST.Contracts.Features.Auth.Commands
 @using Microsoft.AspNetCore.Components.Forms
 
 <MudPaper Class="" Elevation="0">
@@ -6,21 +7,21 @@
         <DataAnnotationsValidator />
         @* <MudText Typo="Typo.h5" GutterBottom="true">Профиль пользователя</MudText> *@
         <MudTextField T="string"
-        @bind-Value="updateUserModel.UserName"
-        For="@(() => updateUserModel.UserName)"
+        @bind-Value="updateUserModel.Request.Name"
+        For="@(() => updateUserModel.Request.Name)"
         Label="Логин"
         Required="true" />
         <MudTextField T="string"
-        @bind-Value="updateUserModel.FullName"
-        For="@(() => updateUserModel.FullName)"
-        Label="Полное имя"
+        @bind-Value="updateUserModel.Request.Surname"
+        For="@(() => updateUserModel.Request.Surname)"
+        Label="Фамилия"
         Required="true"
         Class="mt-3" />
-        <MudDatePicker Label="Срок действия пароля"
-        @bind-Date="updateUserModel.PasswordExpiryDate"
+       @*  <MudDatePicker Label="Срок действия пароля"
+        @bind-Date="updateUserModel.Request.PasswordExpiryDate"
         Required="true"
-        Class="mt-3" />
-        <MudCheckBox @bind-Value="updateUserModel.Disabled"
+        Class="mt-3" /> *@
+        <MudCheckBox @bind-Value="updateUserModel.Request.IsActive"
         Label="Заблокировать пользователя"
         Color="Color.Primary"
         Class="mt-3" />
@@ -38,38 +39,38 @@
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
-    [CascadingParameter(Name = "UserProfile")]
-    private UserProfile UserProfile { get; set; }
+    // [CascadingParameter(Name = "UserProfile")]
+    // private UserProfile UserProfile { get; set; }
 
     [Parameter]
-    public Ulid UserId { get; set; }
+    public Guid UserId { get; set; }
 
     // Экземпляр модели, к которому привязана форма.
-    private UpdateUserCommand updateUserModel = new() { UserProfile = new UserProfile() };
+    private UpdateUserCommand updateUserModel;
 
     protected override async Task OnParametersSetAsync()
     {
-        var res = await _mediatr.Send(new GetUserQuery { Id = UserId, UserProfile =  UserProfile });
+        // var res = await _mediatr.Send(new GetUserQuery { Id = UserId, UserProfile =  UserProfile });
 
-        // Проверяем статус ответа от сервера
-        if (res.Status) // Если Status === true, значит, пользователь успешно найден
-        {            
-            var user = res.Data;
+        // // Проверяем статус ответа от сервера
+        // if (res.Status) // Если Status === true, значит, пользователь успешно найден
+        // {            
+        //     var user = res.Data;
 
-            updateUserModel.Id = user.Id;
-            updateUserModel.UserName = user.UserName;
-            updateUserModel.FullName = user.FullName;
-            updateUserModel.PasswordExpiryDate = user.PasswordExpiryDate;
-            updateUserModel.Disabled = user.Disabled;
+        //     updateUserModel.Id = user.Id;
+        //     updateUserModel.UserName = user.UserName;
+        //     updateUserModel.FullName = user.FullName;
+        //     updateUserModel.PasswordExpiryDate = user.PasswordExpiryDate;
+        //     updateUserModel.Disabled = user.Disabled;
 
-            _snackbar.Add($"Пользователь '{updateUserModel.UserName}' успешно загружен!", Severity.Success);
+        //     _snackbar.Add($"Пользователь '{updateUserModel.UserName}' успешно загружен!", Severity.Success);
 
-            StateHasChanged();
-        }
-        else // Если Status === false, значит, произошла ошибка при получении пользователя
-        {
-            _snackbar.Add($"Не удалось загрузить пользователя: {res.StatusMessage}", Severity.Error);
-        }
+        //     StateHasChanged();
+        // }
+        // else // Если Status === false, значит, произошла ошибка при получении пользователя
+        // {
+        //     _snackbar.Add($"Не удалось загрузить пользователя: {res.StatusMessage}", Severity.Error);
+        // }
     }    
 
     /// <summary>
@@ -77,18 +78,18 @@
     /// </summary>
     private async Task SubmitForm()
     {
-        updateUserModel.UserProfile = UserProfile;
-        var res = await _mediatr.Send(updateUserModel);
+        // updateUserModel.UserProfile = UserProfile;
+        // var res = await _mediatr.Send(updateUserModel);
 
-        if (res.Status)
-        {
-            var user = res.Data;
-            _snackbar.Add($"Пользователь успешно сохранен: {user.UserName} !", Severity.Success);
-            MudDialog.Close(DialogResult.Ok(true));
-        }
-        else
-        {
-            _snackbar.Add($"Ошибка сохранения! {res.StatusMessage}", Severity.Warning);
-        }
+        // if (res.Status)
+        // {
+        //     var user = res.Data;
+        //     _snackbar.Add($"Пользователь успешно сохранен: {user.UserName} !", Severity.Success);
+        //     MudDialog.Close(DialogResult.Ok(true));
+        // }
+        // else
+        // {
+        //     _snackbar.Add($"Ошибка сохранения! {res.StatusMessage}", Severity.Warning);
+        // }
     }
 }

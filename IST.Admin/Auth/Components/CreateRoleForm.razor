@@ -1,17 +1,18 @@
-﻿@using Microsoft.AspNetCore.Components.Forms
+﻿@using IST.Contracts.Features.Auth.Commands
+@using Microsoft.AspNetCore.Components.Forms
 
 <MudPaper Style="width:250px;" Class="" Elevation="0">
     <EditForm Model="@createRoleModel" OnValidSubmit="SubmitForm">
         <DataAnnotationsValidator />
         @* <MudText Typo="Typo.h5" GutterBottom="true">Добавить новый роль</MudText> *@
         <MudTextField T="string"
-                      @bind-Value="createRoleModel.Name"
-                      For="@(() => createRoleModel.Name)"
+                      @bind-Value="createRoleModel.Request.Name"
+                      For="@(() => createRoleModel.Request.Name)"
                       Label="Название"
                       Required="true"/>
         <MudTextField T="string"
-                      @bind-Value="createRoleModel.Description"
-                      For="@(() => createRoleModel.Description)"
+                      @bind-Value="createRoleModel.Request.Description"
+                      For="@(() => createRoleModel.Request.Description)"
                       Label="Описание"
                       Required="true"
                       Class="mt-3" />
@@ -29,29 +30,29 @@
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
-    [CascadingParameter(Name = "UserProfile")]
-    private UserProfile UserProfile { get; set; }
+    // [CascadingParameter(Name = "UserProfile")]
+    // private UserProfile UserProfile { get; set; }
 
     // Экземпляр модели, к которому привязана форма.
-    private CreateRoleCommand createRoleModel = new() { UserProfile = new UserProfile() };
+    private CreateRoleCommand createRoleModel;
 
     /// <summary>
     /// Этот метод вызывается при нажатии на кнопку "Создать".
     /// </summary>
     private async Task SubmitForm()
     {
-        createRoleModel.UserProfile =  UserProfile;
-        var res = await _mediatr.Send(createRoleModel);
+        //createRoleModel.UserProfile =  UserProfile;
+        // var res = await _mediatr.Send(createRoleModel);
 
-        if (res.Status)
-        {
-            var user = res.Data;
-            _snackbar.Add($"Роль успешно создан: {user.Name} !", Severity.Success);
-            MudDialog.Close(DialogResult.Ok(true));
-        }
-        else
-        {
-            _snackbar.Add($"Ошибка создания! {res.StatusMessage}", Severity.Warning);
-        }
+        // if (res.Status)
+        // {
+        //     var user = res.Data;
+        //     _snackbar.Add($"Роль успешно создан: {user.Name} !", Severity.Success);
+        //     MudDialog.Close(DialogResult.Ok(true));
+        // }
+        // else
+        // {
+        //     _snackbar.Add($"Ошибка создания! {res.StatusMessage}", Severity.Warning);
+        // }
     }
 }

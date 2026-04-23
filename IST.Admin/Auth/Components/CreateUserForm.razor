@@ -1,32 +1,33 @@
-﻿@using Microsoft.AspNetCore.Components.Forms
+﻿@using IST.Contracts.Features.Auth.Commands
+@using Microsoft.AspNetCore.Components.Forms
 
 <MudPaper Class="" Elevation="0">
     <EditForm Model="@createUserModel" OnValidSubmit="SubmitForm">
         <DataAnnotationsValidator />
         <MudText Typo="Typo.h5" GutterBottom="true">Создание пользователя</MudText>
         <MudTextField T="string"
-                      @bind-Value="createUserModel.UserName"
-                      For="@(() => createUserModel.UserName)"
+                      @bind-Value="createUserModel.Request.Login"
+                      For="@(() => createUserModel.Request.Login)"
                       Label="Логин"
                       Required="true"/>
         <MudTextField T="string"
-                      @bind-Value="createUserModel.FullName"
-                      For="@(() => createUserModel.FullName)"
+                      @bind-Value="createUserModel.Request.Name"
+                      For="@(() => createUserModel.Request.Name)"
                       Label="Полное имя"
                       Required="true"
                       Class="mt-3" />
         <MudTextField T="string"
-                      @bind-Value="createUserModel.Password"
-                      For="@(() => createUserModel.Password)"
+                      @bind-Value="createUserModel.Request.Password"
+                      For="@(() => createUserModel.Request.Password)"
                       Label="Пароль"
                       Required="true"
                       Class="mt-3" 
                       InputType="@PasswordInput" Adornment="Adornment.End" AdornmentIcon="@PasswordInputIcon" OnAdornmentClick="ShowPassword" AdornmentAriaLabel="Show Password" />
-        <MudCheckBox @bind-Value="createUserModel.ResetPassword"
+        @* <MudCheckBox @bind-Value="createUserModel.ResetPassword"
                      Color="Color.Primary"
                      Class="mt-3">
             <MudText Typo="Typo.caption">Требовать смену пароля при первом входе</MudText>
-        </MudCheckBox>
+        </MudCheckBox> *@
         <MudButton ButtonType="ButtonType.Submit"
                    Variant="Variant.Filled"
                    Color="Color.Primary"
@@ -41,8 +42,8 @@
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
-    [CascadingParameter(Name = "UserProfile")]
-    private UserProfile UserProfile { get; set; }
+    // [CascadingParameter(Name = "UserProfile")]
+    // private UserProfile UserProfile { get; set; }
 
     bool isShow;
     InputType PasswordInput = InputType.Password;
@@ -65,25 +66,25 @@
     }
 
     // Экземпляр модели, к которому привязана форма.
-    private CreateUserCommand createUserModel = new() { UserProfile = new UserProfile() };
+    private CreateUserCommand createUserModel;
 
     /// <summary>
     /// Этот метод вызывается при нажатии на кнопку "Создать".
     /// </summary>
     private async Task SubmitForm()
     {
-        createUserModel.UserProfile =  UserProfile;
-        var res = await _mediatr.Send(createUserModel);
+        // createUserModel.UserProfile =  UserProfile;
+        // var res = await _mediatr.Send(createUserModel);
 
-        if (res.Status)
-        {
-            var userName = res.Data;
-            _snackbar.Add($"Пользователь успешно создан: {userName} !", Severity.Success);
-            MudDialog.Close(DialogResult.Ok(true));
-        }
-        else
-        {
-            _snackbar.Add($"Ошибка создания! {res.StatusMessage}", Severity.Warning);
-        }
+        // if (res.Status)
+        // {
+        //     var userName = res.Data;
+        //     _snackbar.Add($"Пользователь успешно создан: {userName} !", Severity.Success);
+        //     MudDialog.Close(DialogResult.Ok(true));
+        // }
+        // else
+        // {
+        //     _snackbar.Add($"Ошибка создания! {res.StatusMessage}", Severity.Warning);
+        // }
     }
 }

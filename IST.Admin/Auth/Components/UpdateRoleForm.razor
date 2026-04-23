@@ -1,21 +1,22 @@
 ﻿
+@using IST.Contracts.Features.Auth.Commands
 @using Microsoft.AspNetCore.Components.Forms
 
 <MudPaper Class="" Elevation="0">
     <EditForm Model="@updateRoleModel" OnValidSubmit="SubmitForm">
         <DataAnnotationsValidator />
         <MudTextField T="string"
-                      @bind-Value="updateRoleModel.Name"
-                      For="@(() => updateRoleModel.Name)"
+                      @bind-Value="updateRoleModel.Request.Name"
+                      For="@(() => updateRoleModel.Request.Name)"
                       Label="Название"
                       Required="true" />
         <MudTextField T="string"
-                      @bind-Value="updateRoleModel.Description"
-                      For="@(() => updateRoleModel.Description)"
+                      @bind-Value="updateRoleModel.Request.Description"
+                      For="@(() => updateRoleModel.Request.Description)"
                       Label="Описание"
                       Required="true"
                       Class="mt-3" />
-        <MudCheckBox @bind-Value="updateRoleModel.Disabled"
+        <MudCheckBox @bind-Value="updateRoleModel.Request.Disabled"
                      Label="Заблокировать роль"
                      Color="Color.Primary"
                      Class="mt-3" />
@@ -33,37 +34,37 @@
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
-    [CascadingParameter(Name = "UserProfile")]
-    private UserProfile UserProfile { get; set; }
+    // [CascadingParameter(Name = "UserProfile")]
+    // private UserProfile UserProfile { get; set; }
 
     [Parameter]
     public Ulid RoleId { get; set; }
 
     // Экземпляр модели, к которому привязана форма.
-    private UpdateRoleCommand updateRoleModel = new() { UserProfile = new UserProfile() };
+    private UpdateRoleCommand updateRoleModel;
 
     protected override async Task OnParametersSetAsync()
     {
-        var res = await _mediatr.Send(new GetRoleQuery { Id = RoleId, UserProfile = UserProfile });
+        // var res = await _mediatr.Send(new GetRoleQuery { Id = RoleId, UserProfile = UserProfile });
 
-        // Проверяем статус ответа от сервера
-        if (res.Status) // Если Status === true, значит, пользователь успешно найден
-        {            
-            var role = res.Data;
+        // // Проверяем статус ответа от сервера
+        // if (res.Status) // Если Status === true, значит, пользователь успешно найден
+        // {            
+        //     var role = res.Data;
 
-            updateRoleModel.Id = role.Id;
-            updateRoleModel.Name = role.Name;
-            updateRoleModel.Description = role.Description;
-            updateRoleModel.Disabled = role.Disabled;
+        //     updateRoleModel.Id = role.Id;
+        //     updateRoleModel.Name = role.Name;
+        //     updateRoleModel.Description = role.Description;
+        //     updateRoleModel.Disabled = role.Disabled;
 
-            _snackbar.Add($"Роль '{updateRoleModel.Name}' успешно загружен!", Severity.Success);
+        //     _snackbar.Add($"Роль '{updateRoleModel.Name}' успешно загружен!", Severity.Success);
 
-            StateHasChanged();
-        }
-        else // Если Status === false, значит, произошла ошибка при получении
-        {
-            _snackbar.Add($"Не удалось загрузить роль: {res.StatusMessage}", Severity.Error);
-        }
+        //     StateHasChanged();
+        // }
+        // else // Если Status === false, значит, произошла ошибка при получении
+        // {
+        //     _snackbar.Add($"Не удалось загрузить роль: {res.StatusMessage}", Severity.Error);
+        // }
     }    
 
     /// <summary>
@@ -71,18 +72,18 @@
     /// </summary>
     private async Task SubmitForm()
     {
-        updateRoleModel.UserProfile =  UserProfile;
-        var res = await _mediatr.Send(updateRoleModel);
+        // updateRoleModel.UserProfile =  UserProfile;
+        // var res = await _mediatr.Send(updateRoleModel);
 
-        if (res.Status)
-        {
-            var user = res.Data;
-            _snackbar.Add($"Роль успешно сохранен: {user.Name} !", Severity.Success);
-            MudDialog.Close(DialogResult.Ok(true));
-        }
-        else
-        {
-            _snackbar.Add($"Ошибка сохранения! {res.StatusMessage}", Severity.Warning);
-        }
+        // if (res.Status)
+        // {
+        //     var user = res.Data;
+        //     _snackbar.Add($"Роль успешно сохранен: {user.Name} !", Severity.Success);
+        //     MudDialog.Close(DialogResult.Ok(true));
+        // }
+        // else
+        // {
+        //     _snackbar.Add($"Ошибка сохранения! {res.StatusMessage}", Severity.Warning);
+        // }
     }
 }

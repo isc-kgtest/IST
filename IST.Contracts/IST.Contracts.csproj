@@ -7,9 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ActualLab.CommandR" Version="12.2.4" />
-    <PackageReference Include="ActualLab.Fusion" Version="12.2.4" />
-    <PackageReference Include="ActualLab.Fusion.Ext.Contracts" Version="12.2.4" />
+    <PackageReference Include="ActualLab.CommandR"  Version="12.3.70" />
+    <PackageReference Include="ActualLab.Fusion" Version="12.3.70" />
+    <PackageReference Include="ActualLab.Fusion.Ext.Contracts" Version="12.3.70" />
     <PackageReference Include="System.Reactive" Version="6.1.0" />
   </ItemGroup>
 

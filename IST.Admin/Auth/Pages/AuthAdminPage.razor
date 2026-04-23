@@ -1,6 +1,7 @@
 ﻿@page "/authadminpage"
 @using IST.Shared.Models
 @using IST.UI.Models
+@using IST.Admin.Auth.Components
 
 @attribute [Authorize(Roles = "admin")]
 
@@ -56,47 +57,47 @@
 
 	private async Task GetAllRoles()
 	{
-		var res = await _mediatr.Send(new GetAllRolesQuery { UserProfile =  UserProfile });
+		// var res = await _mediatr.Send(new GetAllRolesQuery { UserProfile =  UserProfile });
 
-		if (res.Status)
-		{
-			var roles = res.Data.OrderBy(x => x.CreateDate);
+		// if (res.Status)
+		// {
+		// 	var roles = res.Data.OrderBy(x => x.CreateDate);
 
-			if (roles.Any())
-			{
-				_roles = new();
+		// 	if (roles.Any())
+		// 	{
+		// 		_roles = new();
 
-				foreach (var role in roles)
-				{
-					_roles.Add(new Dictionary<string, object>
-					{
-						//{ "ID", user.Id },
-						{ "Название", role.Name },
-						{ "Описание", role.Description },
-						{ "Дата создания", role.CreateDate },
-						{ "FunctionMenu", new List<MenuItemModel>
-							{
-								new MenuItemModel
-								{
-									Label = "Изменить",
-									OnClickAsync = async () => await ShowUpdateRoleForm(role.Id)
-								},
-								new MenuItemModel
-								{
-									Label = "Удалить",
-									OnClickAsync = async () => await ShowRoleDeleteDialog(role.Id)
-								},
-							}
-						}
-					});
-				}
-			}
-			StateHasChanged();
-		}
-		else
-		{
-			_snackbar.Add($"Не удалось загрузить данные. {res.StatusMessage}", Severity.Warning);
-		}
+		// 		foreach (var role in roles)
+		// 		{
+		// 			_roles.Add(new Dictionary<string, object>
+		// 			{
+		// 				//{ "ID", user.Id },
+		// 				{ "Название", role.Name },
+		// 				{ "Описание", role.Description },
+		// 				{ "Дата создания", role.CreateDate },
+		// 				{ "FunctionMenu", new List<MenuItemModel>
+		// 					{
+		// 						new MenuItemModel
+		// 						{
+		// 							Label = "Изменить",
+		// 							OnClickAsync = async () => await ShowUpdateRoleForm(role.Id)
+		// 						},
+		// 						new MenuItemModel
+		// 						{
+		// 							Label = "Удалить",
+		// 							OnClickAsync = async () => await ShowRoleDeleteDialog(role.Id)
+		// 						},
+		// 					}
+		// 				}
+		// 			});
+		// 		}
+		// 	}
+		// 	StateHasChanged();
+		// }
+		// else
+		// {
+		// 	_snackbar.Add($"Не удалось загрузить данные. {res.StatusMessage}", Severity.Warning);
+		// }
 	}
 
 	private async Task ShowCreateRoleForm()
@@ -160,20 +161,20 @@
 
 		if (!result.Canceled)
 		{
-			var res = await _mediatr.Send(new DeleteRoleCommand { Id = Id, UserProfile =  UserProfile });
+			// var res = await _mediatr.Send(new DeleteRoleCommand { Id = Id, UserProfile =  UserProfile });
 
-			_snackbar.Configuration.SnackbarVariant = Variant.Outlined;
-			_snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+			// _snackbar.Configuration.SnackbarVariant = Variant.Outlined;
+			// _snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
 
-			if (res.Status)
-			{
-				_snackbar.Add("Роль успешно удалён.", Severity.Success);
-				await GetAllRoles();
-			}
-			else
-			{
-				_snackbar.Add("Не удалось удалить роль: " + res.StatusMessage, Severity.Error);
-			}
+			// if (res.Status)
+			// {
+			// 	_snackbar.Add("Роль успешно удалён.", Severity.Success);
+			// 	await GetAllRoles();
+			// }
+			// else
+			// {
+			// 	_snackbar.Add("Не удалось удалить роль: " + res.StatusMessage, Severity.Error);
+			// }
 		}
 	}
 
@@ -207,58 +208,58 @@
 
 	private async Task GetAllUsers()
 	{
-		var res = await _mediatr.Send(new GetAllUsersQuery { UserProfile =  UserProfile});
+		// var res = await _mediatr.Send(new GetAllUsersQuery { UserProfile =  UserProfile});
 
-		if (res.Status)
-		{
-			var users = res.Data.OrderBy(x => x.CreateDate);
+		// if (res.Status)
+		// {
+		// 	var users = res.Data.OrderBy(x => x.CreateDate);
 
-			if (users.Any())
-			{
-				_users = new();
+		// 	if (users.Any())
+		// 	{
+		// 		_users = new();
 
-				foreach (var user in users)
-				{
-					_users.Add(new Dictionary<string, object>
-					{
-						//{ "ID", user.Id },
-						{ "Логин", user.UserName },
-						{ "Полное имя", user.FullName },
-						{ "Дата создания", user.CreateDate },
-						{ "Срок действия пароля", user.PasswordExpiryDate },
-						{ "FunctionMenu", new List<MenuItemModel>
-							{
-								new MenuItemModel
-								{
-									Label = "Профиль",
-									OnClickAsync = async () => await ShowUserProfile(user.Id)
-								},
-								new MenuItemModel
-								{
-									Label = "Роли",
-									OnClickAsync = async () => await ShowEditUserRoleForm(user.Id)
-								},
-								new MenuItemModel
-								{
-									Label = "Сброс пароля",
-									OnClickAsync = async () => await ShowResetPasswordForm(user.UserName)
-								},
-								new MenuItemModel
-								{
-									Label = "Удалить",
-									OnClickAsync = async () => await ShowUserDeleteDialog(user.Id)
-								},
-							} 
-						}
-					});
-				}
-			}
-			StateHasChanged();
-		}
-		else
-		{
-			_snackbar.Add($"Не удалось загрузить данные пользователей. {res.StatusMessage}", Severity.Warning);
-		}
+		// 		foreach (var user in users)
+		// 		{
+		// 			_users.Add(new Dictionary<string, object>
+		// 			{
+		// 				//{ "ID", user.Id },
+		// 				{ "Логин", user.UserName },
+		// 				{ "Полное имя", user.FullName },
+		// 				{ "Дата создания", user.CreateDate },
+		// 				{ "Срок действия пароля", user.PasswordExpiryDate },
+		// 				{ "FunctionMenu", new List<MenuItemModel>
+		// 					{
+		// 						new MenuItemModel
+		// 						{
+		// 							Label = "Профиль",
+		// 							OnClickAsync = async () => await ShowUserProfile(user.Id)
+		// 						},
+		// 						new MenuItemModel
+		// 						{
+		// 							Label = "Роли",
+		// 							OnClickAsync = async () => await ShowEditUserRoleForm(user.Id)
+		// 						},
+		// 						new MenuItemModel
+		// 						{
+		// 							Label = "Сброс пароля",
+		// 							OnClickAsync = async () => await ShowResetPasswordForm(user.UserName)
+		// 						},
+		// 						new MenuItemModel
+		// 						{
+		// 							Label = "Удалить",
+		// 							OnClickAsync = async () => await ShowUserDeleteDialog(user.Id)
+		// 						},
+		// 					} 
+		// 				}
+		// 			});
+		// 		}
+		// 	}
+		// 	StateHasChanged();
+		// }
+		// else
+		// {
+		// 	_snackbar.Add($"Не удалось загрузить данные пользователей. {res.StatusMessage}", Severity.Warning);
+		// }
 	}
 
 
@@ -353,20 +354,20 @@
 
 		if (!result.Canceled)
 		{
-			var res = await _mediatr.Send(new DeleteUserCommand { Id = Id, UserProfile =  UserProfile });
+			// var res = await _mediatr.Send(new DeleteUserCommand { Id = Id, UserProfile =  UserProfile });
 
-			_snackbar.Configuration.SnackbarVariant = Variant.Outlined;
-			_snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
+			// _snackbar.Configuration.SnackbarVariant = Variant.Outlined;
+			// _snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
 
-			if (res.Status)
-			{
-				_snackbar.Add("Пользователь успешно удалён.", Severity.Success);
-				await GetAllUsers();
-			}
-			else
-			{
-				_snackbar.Add("Не удалось удалить пользователя: " + res.StatusMessage, Severity.Error);
-			}
+			// if (res.Status)
+			// {
+			// 	_snackbar.Add("Пользователь успешно удалён.", Severity.Success);
+			// 	await GetAllUsers();
+			// }
+			// else
+			// {
+			// 	_snackbar.Add("Не удалось удалить пользователя: " + res.StatusMessage, Severity.Error);
+			// }
 		}
 	}
 

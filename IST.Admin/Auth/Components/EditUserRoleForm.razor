@@ -1,6 +1,4 @@
 ﻿
-@using ASIO10.Domain.EntityModels.Auth
-
 <MudDropContainer T="DropItem" DraggingClass="mud-alert-text-warning" ItemDraggingClass="mud-alert-text-warning" Items="_allRoles" ItemsSelector="@((item, dropzone) => item.Identifier == dropzone)" NoDropClass="mud-border-error" ItemDropped="ItemUpdated" Class="d-flex flex-wrap flex-grow-1">
     <ChildContent>
         <MudDropZone T="DropItem" Identifier="AllRoles" DraggingClass="mud-alert-text-info" ItemDraggingClass="mud-alert-text-info" Class="rounded-lg border-2 border-dashed mud-border-lines-default pa-4 mr-4">
@@ -29,11 +27,11 @@
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
-    [CascadingParameter(Name = "UserProfile")]
-    private UserProfile UserProfile { get; set; }
+    // [CascadingParameter(Name = "UserProfile")]
+    // private UserProfile UserProfile { get; set; }
 
     [Parameter]
-    public Ulid UserId { get; set; }
+    public Guid UserId { get; set; }
 
     private void ItemUpdated(MudItemDropInfo<DropItem> dropItem)
     {
@@ -45,7 +43,7 @@
 
     public class DropItem
     {
-        public Ulid RoleId { get; init; }
+        public Guid RoleId { get; init; }
         public string Name { get; init; }
         public string Identifier { get; set; }
     }
@@ -64,24 +62,24 @@
         {
             foreach (var role in createRoles)
             {
-                var res = await _mediatr.Send(new CreateUserRoleCommand
-                    { 
-                        RoleId = role.RoleId, 
-                        UserId = UserId, 
-                        StartDate = DateTime.UtcNow,
-                        EndDate = DateTime.UtcNow.AddYears(10),
-                        UserProfile =  UserProfile
-                    });
+                // var res = await _mediatr.Send(new CreateUserRoleCommand
+                //     { 
+                //         RoleId = role.RoleId, 
+                //         UserId = UserId, 
+                //         StartDate = DateTime.UtcNow,
+                //         EndDate = DateTime.UtcNow.AddYears(10),
+                //         UserProfile =  UserProfile
+                //     });
 
-                if (res.Status)
-                {
-                    _snackbar.Add($"Роль успешно добавлен: {role.Name} !", Severity.Success);
-                    MudDialog.Close(DialogResult.Ok(true));
-                }
-                else
-                {
-                    _snackbar.Add($"Ошибка сохранения: '{role.Name}' {res.StatusMessage}");
-                }
+                // if (res.Status)
+                // {
+                //     _snackbar.Add($"Роль успешно добавлен: {role.Name} !", Severity.Success);
+                //     MudDialog.Close(DialogResult.Ok(true));
+                // }
+                // else
+                // {
+                //     _snackbar.Add($"Ошибка сохранения: '{role.Name}' {res.StatusMessage}");
+                // }
             }
         }
         
@@ -91,22 +89,22 @@
         {
             foreach (var role in deleteRoles)
             {
-                var res = await _mediatr.Send(new DeleteUserRoleCommand
-                {
-                    RoleId = role.Id,
-                    UserId = UserId,
-                    UserProfile =  UserProfile
-                });
+                // var res = await _mediatr.Send(new DeleteUserRoleCommand
+                // {
+                //     RoleId = role.Id,
+                //     UserId = UserId,
+                //     UserProfile =  UserProfile
+                // });
 
-                if (res.Status)
-                {
-                    _snackbar.Add($"Роль успешно удален: {role.Name} !", Severity.Success);
-                    MudDialog.Close(DialogResult.Ok(true));
-                }
-                else
-                {
-                    _snackbar.Add($"Ошибка удаления: '{role.Name}' {res.StatusMessage}");
-                }
+                // if (res.Status)
+                // {
+                //     _snackbar.Add($"Роль успешно удален: {role.Name} !", Severity.Success);
+                //     MudDialog.Close(DialogResult.Ok(true));
+                // }
+                // else
+                // {
+                //     _snackbar.Add($"Ошибка удаления: '{role.Name}' {res.StatusMessage}");
+                // }
             }
         }
 
@@ -128,50 +126,50 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        var res = await _mediatr.Send(new GetUserQuery { Id = UserId, UserProfile =  UserProfile });
+        // var res = await _mediatr.Send(new GetUserQuery { Id = UserId, UserProfile =  UserProfile });
 
-        // Проверяем статус ответа от сервера
-        if (res.Status)
-        {            
-            var user = res.Data;
+        // // Проверяем статус ответа от сервера
+        // if (res.Status)
+        // {            
+        //     var user = res.Data;
 
-            _snackbar.Add($"Пользователь '{user.UserName}' успешно загружен!", Severity.Success);
+        //     _snackbar.Add($"Пользователь '{user.UserName}' успешно загружен!", Severity.Success);
 
-            var resAllRoles = await _mediatr.Send(new GetAllRolesQuery { UserProfile =  UserProfile });
+        //     var resAllRoles = await _mediatr.Send(new GetAllRolesQuery { UserProfile =  UserProfile });
 
-            if (resAllRoles.Status)
-            {
-                var allRoles = resAllRoles.Data.Where(x => !x.Disabled).ToList(); // если роль заблокирован Disabled = true
+        //     if (resAllRoles.Status)
+        //     {
+        //         var allRoles = resAllRoles.Data.Where(x => !x.Disabled).ToList(); // если роль заблокирован Disabled = true
 
-                _userRoles = user.UserRoles.Select(x => x.Role).ToList();
+        //         _userRoles = user.UserRoles.Select(x => x.Role).ToList();
 
-                _allRoles.Clear();
+        //         _allRoles.Clear();
 
-                _allRoles.AddRange(
-                    _userRoles.Select(x => new DropItem
-                    {
-                        RoleId = x.Id,
-                        Name = x.Name,
-                        Identifier = "UserRoles"
-                    }).ToList()
-                );
+        //         _allRoles.AddRange(
+        //             _userRoles.Select(x => new DropItem
+        //             {
+        //                 RoleId = x.Id,
+        //                 Name = x.Name,
+        //                 Identifier = "UserRoles"
+        //             }).ToList()
+        //         );
 
-               _allRoles.AddRange(
-                     allRoles.Where(x => !_userRoles.Select(u => u.Id).Contains(x.Id))
-                    .Select(x => new DropItem
-                    {
-                        RoleId = x.Id,
-                        Name = x.Name,
-                        Identifier = "AllRoles"
-                    }).ToList()
-               );
-            }
+        //        _allRoles.AddRange(
+        //              allRoles.Where(x => !_userRoles.Select(u => u.Id).Contains(x.Id))
+        //             .Select(x => new DropItem
+        //             {
+        //                 RoleId = x.Id,
+        //                 Name = x.Name,
+        //                 Identifier = "AllRoles"
+        //             }).ToList()
+        //        );
+        //     }
 
-            StateHasChanged();
-        }
-        else
-        {
-            _snackbar.Add($"Не удалось загрузить пользователя: {res.StatusMessage}", Severity.Error);
-        }
+        //     StateHasChanged();
+        // }
+        // else
+        // {
+        //     _snackbar.Add($"Не удалось загрузить пользователя: {res.StatusMessage}", Severity.Error);
+        // }
     }    
 }
