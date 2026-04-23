@@ -82,7 +82,7 @@ public class AuthCommands : IAuthCommands
                 Data = null
             };
         }
-       
+
         // 7. Создаём сущность
         var userEntity = new UserEntity
         {
@@ -102,7 +102,7 @@ public class AuthCommands : IAuthCommands
             Password = PasswordUtils.HashPassword(request.Password),
             PasswordExpiryDate = DateTime.UtcNow.AddMonths(6),
 
-            LastDateLogin = null, 
+            LastDateLogin = null,
         };
 
         await dbContext.Users.AddAsync(userEntity, cancellationToken);
@@ -123,9 +123,7 @@ public class AuthCommands : IAuthCommands
     }
 
     [CommandHandler]
-    public virtual async Task<ResponseDTO<UserResponseDTO>> UpdateUserAsync(
-      UpdateUserCommand command,
-      CancellationToken cancellationToken = default)
+    public virtual async Task<ResponseDTO<UserResponseDTO>> UpdateUserAsync(UpdateUserCommand command, CancellationToken cancellationToken = default)
     {
         var request = command.Request;
 
@@ -203,7 +201,7 @@ public class AuthCommands : IAuthCommands
     }
 
     [CommandHandler]
-    public virtual async Task<ResponseDTO<string>> DeleteUserAsync(DeleteUserCommand command, Session session,CancellationToken cancellationToken = default)
+    public virtual async Task<ResponseDTO<string>> DeleteUserAsync(DeleteUserCommand command, CancellationToken cancellationToken = default)
     {
         // 1. Инвалидация
         if (Invalidation.IsActive)
@@ -215,7 +213,7 @@ public class AuthCommands : IAuthCommands
         }
 
         // 2. ПОЛУЧАЕМ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ИЗ СЕССИИ
-        var currentUser = await _auth.GetUser(session, cancellationToken);
+        var currentUser = await _auth.GetUser(command.Session, cancellationToken);
 
         // Предполагаю, что command.UserId у тебя Guid или число, поэтому приводим к строке:
         bool isSelfDelete = currentUser?.Id == command.UserId.ToString();
@@ -269,56 +267,29 @@ public class AuthCommands : IAuthCommands
     [CommandHandler]
     public virtual async Task<ResponseDTO<string>> ChangeUserPasswordAsync(ChangeUserPasswordCommand command, CancellationToken cancellationToken = default)
     {
+        // 1. Инвалидация Fusion
         if (Invalidation.IsActive)
         {
             _ = _queries.GetAllUsersAsync(default);
             _ = _queries.GetUserByLoginAsync(command.Request.Login, default);
             return default!;
         }
-        // Сразу деконструируем результат в переменные с понятными именами
+
+        // 2. Валидация формы (без БД)
+        var strengthCheck = PasswordUtils.ValidateStrength(command.Request.NewPassword);
+
         (string message, ResponseStatusCode statusCode) = true switch
         {
-            // Проверка на совпадение со старым паролем
-            _ when command.Request.CurrentPassword == command.Request.NewPassword
-                => ("Новый пароль не должен совпадать с текущим.", ResponseStatusCode.ValidationError),
-
-            // Проверка на совпадение с подтверждением
-            _ when command.Request.ConfirmPassword != command.Request.NewPassword
+            _ when command.Request.NewPassword != command.Request.ConfirmPassword
                 => ("Новый пароль и его подтверждение не совпадают.", ResponseStatusCode.ValidationError),
 
-            // Случай по умолчанию: все проверки пройдены
-            _ => ("Валидация пройдена успешно.", ResponseStatusCode.Ok)
-        };
+            _ when command.Request.CurrentPassword == command.Request.NewPassword
+                => ("Новый пароль должен отличаться от текущего.", ResponseStatusCode.ValidationError),
 
-        if (statusCode != ResponseStatusCode.Ok)
-        {
-            return new()
-            {
-                Status = false,
-                StatusMessage = message,
-                StatusCode = statusCode,
-            };
-        }
+            _ when !strengthCheck.IsValid
+                => (strengthCheck.ErrorMessage!, ResponseStatusCode.ValidationError),
 
-        await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
-
-        var user = await dbContext.Users.FirstOrDefaultAsync(x => x.Login == command.Request.Login, cancellationToken);
-
-        var passValid = PasswordUtils.VerifyPassword(command.Request.CurrentPassword, user?.Password ?? null);
-
-        (message, statusCode) = true switch
-        {
-            _ when user is null
-                => ("Неверный логин", ResponseStatusCode.NotFound),
-
-            _ when !user.IsActive
-                => ("Ваша учетная запись отключена. Пожалуйста, свяжитесь с администратором.", ResponseStatusCode.Unauthorized),
-
-            _ when !passValid
-                => ("Неверный пароль", ResponseStatusCode.Unauthorized),
-
-            // Случай по умолчанию: все проверки пройдены
-            _ => ("Валидация пройдена успешно.", ResponseStatusCode.Ok)
+            _ => (string.Empty, ResponseStatusCode.Ok)
         };
 
         if (statusCode != ResponseStatusCode.Ok)
@@ -330,23 +301,54 @@ public class AuthCommands : IAuthCommands
                 StatusCode = statusCode
             };
         }
-        else
+
+        // 3. Проверки с БД
+        await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
+
+        var user = await dbContext.Users
+            .FirstOrDefaultAsync(x => x.Login == command.Request.Login, cancellationToken);
+
+        var passValid = user != null
+            && PasswordUtils.VerifyPassword(command.Request.CurrentPassword, user.Password);
+
+        (message, statusCode) = true switch
         {
-            user.Password = PasswordUtils.HashPassword(command.Request.NewPassword);
-            user.PasswordExpiryDate = DateTime.UtcNow.AddMonths(3);
+            _ when user is null || !passValid
+                => ("Неверный логин или пароль.", ResponseStatusCode.Unauthorized),
 
-            dbContext.Users.Update(user);
+            _ when !user.IsActive
+                => ("Ваша учётная запись отключена. Пожалуйста, свяжитесь с администратором.",
+                    ResponseStatusCode.Unauthorized),
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+            _ when PasswordUtils.VerifyPassword(command.Request.NewPassword, user.Password)
+                => ("Новый пароль должен отличаться от текущего.", ResponseStatusCode.ValidationError),
 
+            _ => (string.Empty, ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
             return new()
             {
-                Data = user.Login,
-                Status = true,
-                StatusMessage = "Пароль успешно изменен",
-                StatusCode = ResponseStatusCode.Ok
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode
             };
         }
+
+        // 4. Обновляем пароль
+        user.Password = PasswordUtils.HashPassword(command.Request.NewPassword);
+        user.PasswordExpiryDate = DateTime.UtcNow.AddMonths(6);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new()
+        {
+            Data = user.Login,
+            Status = true,
+            StatusMessage = "Пароль успешно изменён.",
+            StatusCode = ResponseStatusCode.Ok
+        };
     }
 
     [CommandHandler]
@@ -424,101 +426,390 @@ public class AuthCommands : IAuthCommands
             };
         }
 
-    }    
+    }
 
     // Roles
     [CommandHandler]
-    public virtual async Task<RoleEntity> CreateRoleAsync(RoleEntity role, CancellationToken cancellationToken = default)
+    public virtual async Task<ResponseDTO<RoleResponseDTO>> CreateRoleAsync(CreateRoleCommand command, CancellationToken cancellationToken = default)
     {
+        // 1. Инвалидация
+        if (Invalidation.IsActive)
+        {
+            _ = _queries.GetAllRolesAsync(default);
+            return default!;
+        }
+        // 3. Открываем контекст
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
+
+        var normalizedName = command.Request.Name.ToLower().Trim();
+
+        // 4. Валидация: проверка уникальности имени
+        var nameExists = await dbContext.Roles
+            .AnyAsync(r => r.Name == normalizedName, cancellationToken);
+
+        (string message, ResponseStatusCode statusCode) = true switch
+        {
+            _ when nameExists
+                => ("Роль с таким названием уже существует.", ResponseStatusCode.ValidationError),
+
+            _ => (string.Empty, ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode
+            };
+        }
+
+        // 5. Создаём роль — CreatedBy/At проставятся через ApplyAudit
+        var role = new RoleEntity
+        {
+            Name = normalizedName,
+            Description = command.Request.Description.Trim()
+        };
 
         await dbContext.Roles.AddAsync(role, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        InvalidateRoleCache(role);
-
-        return role;
+        // 6. Формируем ответ
+        return new()
+        {
+            Status = true,
+            StatusMessage = "Роль успешно создана.",
+            StatusCode = ResponseStatusCode.Ok,
+            Data = new RoleResponseDTO
+            {
+                Id = role.Id,
+                Name = role.Name,
+                Description = role.Description
+            }
+        };
     }
 
     [CommandHandler]
-    public virtual async Task<RoleEntity> UpdateRoleAsync(RoleEntity role, CancellationToken cancellationToken = default)
+    public virtual async Task<ResponseDTO<RoleResponseDTO>> UpdateRoleAsync(UpdateRoleCommand command, CancellationToken cancellationToken = default)
     {
+        // 1. Инвалидация
+        if (Invalidation.IsActive)
+        {
+            _ = _queries.GetAllRolesAsync(default);
+            _ = _queries.GetRoleByIdAsync(command.Request.Id, default);
+            return default!;
+        }
+
+
+        // 3. Находим роль
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
-        dbContext.Roles.Update(role);
+        var role = await dbContext.Roles
+            .FirstOrDefaultAsync(r => r.Id == command.Request.Id, cancellationToken);
+
+        var normalizedName = command.Request.Name.ToLower().Trim();
+
+        // 4. Проверка уникальности имени (если изменилось)
+        var nameConflict = role != null
+            && !string.Equals(role.Name, normalizedName, StringComparison.OrdinalIgnoreCase)
+            && await dbContext.Roles.AnyAsync(r =>
+                r.Id != command.Request.Id && r.Name == normalizedName, cancellationToken);
+
+        (string message, ResponseStatusCode statusCode) = true switch
+        {
+            _ when role is null
+                => ("Роль не найдена.", ResponseStatusCode.NotFound),
+
+            _ when nameConflict
+                => ("Роль с таким названием уже существует.", ResponseStatusCode.ValidationError),
+
+            _ => (string.Empty, ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode
+            };
+        }
+
+        // 5. Обновляем поля — UpdatedAt/By проставятся через ApplyAudit
+        role!.Name = normalizedName;
+        role.Description = command.Request.Description.Trim();
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        InvalidateRoleCache(role);
+        return new()
+        {
+            Status = true,
+            StatusMessage = "Роль успешно обновлена.",
+            StatusCode = ResponseStatusCode.Ok,
+            Data = new RoleResponseDTO
+            {
+                Id = role.Id,
+                Name = role.Name,
+                Description = role.Description
+            }
+        };
 
-        return role;
     }
-
     [CommandHandler]
-    public virtual async Task<bool> DeleteRoleAsync(RoleEntity role, CancellationToken cancellationToken = default)
+    public virtual async Task<ResponseDTO<string>> DeleteRoleAsync(DeleteRoleCommand command, CancellationToken cancellationToken = default)
     {
+        // 1. Инвалидация
+        if (Invalidation.IsActive)
+        {
+            _ = _queries.GetAllRolesAsync(default);
+            _ = _queries.GetRoleByIdAsync(command.RoleId, default);
+            _ = _queries.GetAllUsersAsync(default);  // список юзеров тоже затронут
+            return default!;
+        }
+
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
-        dbContext.Roles.Remove(role);
-        var changes = await dbContext.SaveChangesAsync(cancellationToken);
+        var roleToDelete = await dbContext.Roles
+            .Include(r => r.UserRoles)
+            .FirstOrDefaultAsync(r => r.Id == command.RoleId, cancellationToken);
 
-        if (changes > 0)
-            InvalidateRoleCache(role);
+        var isSystemRole = roleToDelete != null
+            && (roleToDelete.Name == "superadmin" || roleToDelete.Name == "admin");
 
-        return changes > 0;
-    }    
+        (string message, ResponseStatusCode statusCode) = true switch
+        {
+            _ when roleToDelete is null
+                => ("Роль не найдена.", ResponseStatusCode.NotFound),
+
+            _ when isSystemRole
+                => ("Нельзя удалить системную роль.", ResponseStatusCode.ValidationError),
+
+            _ => (string.Empty, ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode
+            };
+        }
+
+        dbContext.UserRoles.RemoveRange(roleToDelete!.UserRoles);
+        dbContext.Roles.Remove(roleToDelete);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new()
+        {
+            Status = true,
+            StatusMessage = "Роль успешно удалена.",
+            StatusCode = ResponseStatusCode.Ok,
+            Data = roleToDelete.Name
+        };
+
+    }
 
     // UserRoles
     [CommandHandler]
-    public virtual async Task<UserRolesEntity> CreateUserRoleAsync(UserRolesEntity userRole, CancellationToken cancellationToken = default)
+    public virtual async Task<ResponseDTO<UserRoleResponseDTO>> CreateUserRoleAsync(CreateUserRoleCommand command, CancellationToken cancellationToken = default)
     {
+        // 1. Инвалидация
+        if (Invalidation.IsActive)
+        {
+            _ = _queries.GetUserByIdAsync(command.Request.UserId, default);
+            _ = _queries.GetAllUsersAsync(default);
+            return default!;
+        }
+
+        var startDate = command.Request.StartDate ?? DateTime.UtcNow;
+        var endDate = command.Request.EndDate;
+
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
+
+        var userExists = await dbContext.Users
+            .AnyAsync(u => u.Id == command.Request.UserId, cancellationToken);
+
+        var role = await dbContext.Roles
+            .FirstOrDefaultAsync(r => r.Id == command.Request.RoleId, cancellationToken);
+
+        var duplicateExists = await dbContext.UserRoles
+            .AnyAsync(ur => ur.UserId == command.Request.UserId
+                         && ur.RoleId == command.Request.RoleId
+                         && (ur.EndDate == null || ur.EndDate > DateTime.UtcNow),
+                      cancellationToken);
+
+        (string message, ResponseStatusCode statusCode) = true switch
+        {
+            _ when !userExists
+                => ("Пользователь не найден.", ResponseStatusCode.NotFound),
+
+            _ when role is null
+                => ("Роль не найдена.", ResponseStatusCode.NotFound),
+
+            _ when endDate.HasValue && endDate.Value <= startDate
+                => ("Дата окончания должна быть позже даты начала.", ResponseStatusCode.ValidationError),
+
+            _ when duplicateExists
+                => ("У пользователя уже есть эта роль.", ResponseStatusCode.ValidationError),
+
+            _ => (string.Empty, ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode
+            };
+        }
+
+        // 6. Создаём связь — аудит-поля проставит ApplyAudit в SaveChangesAsync
+        var userRole = new UserRolesEntity
+        {
+            UserId = command.Request.UserId,
+            RoleId = command.Request.RoleId,
+            StartDate = startDate,
+            EndDate = endDate
+        };
 
         await dbContext.UserRoles.AddAsync(userRole, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        InvalidateUserRoleCache(userRole);
+        // 7. Подгружаем данные пользователя для ответа
+        var user = await dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == command.Request.UserId, cancellationToken);
 
-        return userRole;
+        return new()
+        {
+            Status = true,
+            StatusMessage = "Роль успешно назначена.",
+            StatusCode = ResponseStatusCode.Ok,
+            Data = new UserRoleResponseDTO
+            {
+                Id = userRole.Id,
+                UserId = userRole.UserId,
+                UserFullName = user?.FullName ?? "",
+                RoleId = userRole.RoleId,
+                RoleName = role!.Name,
+                StartDate = userRole.StartDate,
+                EndDate = userRole.EndDate
+            }
+        };
+
     }
-
     [CommandHandler]
-    public virtual async Task<bool> DeleteUserRoleAsync(UserRolesEntity userRole, CancellationToken cancellationToken = default)
+    public virtual async Task<ResponseDTO<UserRoleResponseDTO>> UpdateUserRoleAsync(UpdateUserRoleCommand command, CancellationToken cancellationToken = default)
     {
+        // 1. Инвалидация
+        if (Invalidation.IsActive)
+        {
+            _ = _queries.GetAllUsersAsync(default);
+            return default!;
+        }
+      
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
-        dbContext.UserRoles.Remove(userRole);
-        var changes = await dbContext.SaveChangesAsync(cancellationToken);
+        var userRole = await dbContext.UserRoles
+            .Include(ur => ur.User)
+            .Include(ur => ur.Role)
+            .FirstOrDefaultAsync(ur => ur.Id == command.Request.Id, cancellationToken);
 
-        if (changes > 0)
-            InvalidateUserRoleCache(userRole);
+        (string message, ResponseStatusCode statusCode) = true switch
+        {
+            _ when userRole is null
+                => ("Назначение роли не найдено.", ResponseStatusCode.NotFound),
 
-        return changes > 0;
+            _ when command.Request.EndDate.HasValue
+                && command.Request.EndDate.Value <= command.Request.StartDate
+                => ("Дата окончания должна быть позже даты начала.", ResponseStatusCode.ValidationError),
+
+            _ => (string.Empty, ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
+        {
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode
+            };
+        }
+
+        userRole!.StartDate = command.Request.StartDate;
+        userRole.EndDate = command.Request.EndDate;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new()
+        {
+            Status = true,
+            StatusMessage = "Период действия роли обновлён.",
+            StatusCode = ResponseStatusCode.Ok,
+            Data = new UserRoleResponseDTO
+            {
+                Id = userRole.Id,
+                UserId = userRole.UserId,
+                UserFullName = userRole.User?.FullName ?? "",
+                RoleId = userRole.RoleId,
+                RoleName = userRole.Role?.Name ?? "",
+                StartDate = userRole.StartDate,
+                EndDate = userRole.EndDate
+            }
+        };
+
     }
-
-    // --- Вспомогательные методы для инвалидации кэша ---
-    private void InvalidateUserCache(UserEntity user)
+    [CommandHandler]
+    public virtual async Task<ResponseDTO<string>> DeleteUserRoleAsync(DeleteUserRoleCommand command, CancellationToken cancellationToken = default)
     {
-        using (Invalidation.Begin())
+        if (Invalidation.IsActive)
         {
             _ = _queries.GetAllUsersAsync(default);
-            _ = _queries.GetUserByLoginAsync(user.Login, default);
-            _ = _queries.GetUserByIdAsync(user.Id, default);
+            return default!;
         }
-    }
-    private void InvalidateRoleCache(RoleEntity role)
-    {
-        using (Invalidation.Begin())
+
+        await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
+
+        var userRole = await dbContext.UserRoles
+            .Include(ur => ur.Role)
+            .FirstOrDefaultAsync(ur => ur.Id == command.UserRoleId, cancellationToken);
+
+        (string message, ResponseStatusCode statusCode) = true switch
         {
-            _ = _queries.GetAllRolesAsync(default);
-            _ = _queries.GetRoleByIdAsync(role.Id, default);
-        }
-    }
-    private void InvalidateUserRoleCache(UserRolesEntity userRole)
-    {
-        using (Invalidation.Begin())
+            _ when userRole is null
+                => ("Назначение роли не найдено.", ResponseStatusCode.NotFound),
+
+            _ => (string.Empty, ResponseStatusCode.Ok)
+        };
+
+        if (statusCode != ResponseStatusCode.Ok)
         {
-            _ = _queries.GetUserByIdAsync(userRole.UserId, default);
-            _ = _queries.GetAllUsersAsync(default);
+            return new()
+            {
+                Status = false,
+                StatusMessage = message,
+                StatusCode = statusCode
+            };
         }
+
+        dbContext.UserRoles.Remove(userRole!);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new()
+        {
+            Status = true,
+            StatusMessage = "Роль успешно отозвана.",
+            StatusCode = ResponseStatusCode.Ok,
+            Data = userRole!.Role?.Name ?? ""
+        };
+
     }
+
 }

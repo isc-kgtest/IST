@@ -7,5 +7,5 @@ public class UserRolesEntity : BaseEntity
     public UserEntity User { get; set; }
     public RoleEntity Role { get; set; }
     public DateTime StartDate { get; set; }
-    public DateTime EndDate { get; set; }
+    public DateTime? EndDate { get; set; }
 }
