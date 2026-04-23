@@ -5,11 +5,11 @@ using IST.Shared.DTOs.Common;
 
 namespace IST.Contracts.Features.Auth;
 
-public interface IAuthCommands
+public interface IAuthCommands : ICommandService
 {
     //Users
     Task<ResponseDTO<UserResponseDTO>> CreateUserAsync(CreateUserCommand command, CancellationToken cancellationToken = default);
-    Task<UserEntity> UpdateUserAsync(UserEntity user, CancellationToken cancellationToken = default);
+    Task<ResponseDTO<UserResponseDTO>> UpdateUserAsync(UpdateUserCommand command, CancellationToken cancellationToken = default);
     Task<bool> DeleteUserAsync(UserEntity user, CancellationToken cancellationToken = default);
     Task<string> ChangeUserPasswordAsync(Guid userId, string hashedNewPassword, DateTime passwordExpiryDate, CancellationToken cancellationToken = default);
     Task<string> ResetUserPasswordAsync(Guid userId, string hashedNewPassword, DateTime passwordExpiryDate, CancellationToken cancellationToken = default);

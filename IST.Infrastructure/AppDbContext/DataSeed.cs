@@ -40,7 +40,7 @@ public static class DataSeed
                 PhoneNumber = "+00000000000",
                 IsActive = true,
                 LastDateLogin = createDateTimeUtcNow,
-                Organization = Guid.Empty, // Заглушка, так как поле не nullable
+                OrganizationId = Guid.Empty, // Заглушка, так как поле не nullable
                 Password = "$argon2id$v=19$m=32768,t=4,p=1$j8Hfb0sAcmWRKWanHyDh9A$spaN8XOINtX1M0PNUV4esKl02Fdv/2Fxr45V5aSJbfo",
                 PasswordExpiryDate = createDateTimeUtcNow,
                 CreatedAt = createDateTimeUtcNow

@@ -1,0 +1,38 @@
+﻿using System.ComponentModel.DataAnnotations;
+using System.Runtime.Serialization;
+
+namespace IST.Shared.DTOs.Auth;
+
+[DataContract]
+public class UpdateUserRequest
+{
+    [DataMember, Required]
+    public Guid Id { get; set; }
+
+    [DataMember, Required(ErrorMessage = "Фамилия обязательна")]
+    public string Surname { get; set; } = "";
+
+    [DataMember, Required(ErrorMessage = "Имя обязательно")]
+    public string Name { get; set; } = "";
+
+    [DataMember]
+    public string? Patronymic { get; set; }
+
+    [DataMember, Required]
+    public string Position { get; set; } = "";
+
+    [DataMember]
+    public Guid Organization { get; set; }
+
+    [DataMember]
+    public string? Department { get; set; }
+
+    [DataMember, Required, EmailAddress]
+    public string EMail { get; set; } = "";
+
+    [DataMember, Required]
+    public string PhoneNumber { get; set; } = "";
+
+    [DataMember]
+    public bool IsActive { get; set; }
+}
