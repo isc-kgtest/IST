@@ -109,30 +109,30 @@
 
         _isLoading = true;
         _errorMessage = "";
-        try
-        {
-            var session = SessionResolver.Session;
-            var cmd = new LoginAdminCmd(session, Username, Password);
-            await Commander.Call(cmd);
+        // try
+        // {
+        //     var session = SessionResolver.Session;
+        //     var cmd = new LoginAdminCmd(session, Username, Password);
+        //     await Commander.Call(cmd);
 
-            if (HttpContext != null)
-            {
-                var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, Username),
-                    new Claim("Role", "Admin")
-                };
-                var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-                await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
-            }
-        }
-        catch (Exception)
-        {
-            _errorMessage = "Invalid credentials. Please try again.";
-        }
-        finally
-        {
-            _isLoading = false;
-        }
+        //     if (HttpContext != null)
+        //     {
+        //         var claims = new List<Claim>
+        //         {
+        //             new Claim(ClaimTypes.Name, Username),
+        //             new Claim("Role", "Admin")
+        //         };
+        //         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        //         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+        //     }
+        // }
+        // catch (Exception)
+        // {
+        //     _errorMessage = "Invalid credentials. Please try again.";
+        // }
+        // finally
+        // {
+        //     _isLoading = false;
+        // }
     }
 }

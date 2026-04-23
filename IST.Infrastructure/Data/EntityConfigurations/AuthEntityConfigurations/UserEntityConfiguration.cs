@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace IST.Infrastructure.AppDbContext.EntityConfigurations.AuthEntityConfigurations;
+namespace IST.Infrastructure.Data.EntityConfigurations.AuthEntityConfigurations;
 
 public class UserEntityConfiguration : IEntityTypeConfiguration<UserEntity>
 {
@@ -53,13 +53,15 @@ public class UserEntityConfiguration : IEntityTypeConfiguration<UserEntity>
         // Уникальный Login среди неудалённых
         builder.HasIndex(e => e.Login)
             .IsUnique()
-            .HasFilter("\"is_deleted\" = false")
+            // ИСПРАВЛЕНО: "IsDeleted" вместо "is_deleted"
+            .HasFilter("\"IsDeleted\" = false")
             .HasDatabaseName("ix_users_login_unique");
 
         // Уникальный Email среди неудалённых (требование ТЗ)
         builder.HasIndex(e => e.EMail)
             .IsUnique()
-            .HasFilter("\"is_deleted\" = false")
+            // ИСПРАВЛЕНО: "IsDeleted" вместо "is_deleted"
+            .HasFilter("\"IsDeleted\" = false")
             .HasDatabaseName("ix_users_email_unique");
 
         // Для фильтров по организации
@@ -68,7 +70,8 @@ public class UserEntityConfiguration : IEntityTypeConfiguration<UserEntity>
 
         // Для фильтров «активные пользователи»
         builder.HasIndex(e => e.IsActive)
-            .HasFilter("\"is_deleted\" = false")
+            // ИСПРАВЛЕНО: "IsDeleted" вместо "is_deleted"
+            .HasFilter("\"IsDeleted\" = false")
             .HasDatabaseName("ix_users_is_active");
 
         // === Связи ===

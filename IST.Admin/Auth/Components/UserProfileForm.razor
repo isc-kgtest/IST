@@ -1,0 +1,95 @@
+﻿
+@using IST.Contracts.Features.Auth.Commands
+@using Microsoft.AspNetCore.Components.Forms
+
+<MudPaper Class="" Elevation="0">
+    <EditForm Model="@updateUserModel" OnValidSubmit="SubmitForm">
+        <DataAnnotationsValidator />
+        @* <MudText Typo="Typo.h5" GutterBottom="true">Профиль пользователя</MudText> *@
+        <MudTextField T="string"
+        @bind-Value="updateUserModel.Request.Name"
+        For="@(() => updateUserModel.Request.Name)"
+        Label="Логин"
+        Required="true" />
+        <MudTextField T="string"
+        @bind-Value="updateUserModel.Request.Surname"
+        For="@(() => updateUserModel.Request.Surname)"
+        Label="Фамилия"
+        Required="true"
+        Class="mt-3" />
+       @*  <MudDatePicker Label="Срок действия пароля"
+        @bind-Date="updateUserModel.Request.PasswordExpiryDate"
+        Required="true"
+        Class="mt-3" /> *@
+        <MudCheckBox @bind-Value="updateUserModel.Request.IsActive"
+        Label="Заблокировать пользователя"
+        Color="Color.Primary"
+        Class="mt-3" />
+        <MudButton ButtonType="ButtonType.Submit"
+        Variant="Variant.Filled"
+        Color="Color.Primary"
+        Class="mt-5">
+            Сохранить
+        </MudButton>
+    </EditForm>
+</MudPaper> 
+
+@code {
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    // [CascadingParameter(Name = "UserProfile")]
+    // private UserProfile UserProfile { get; set; }
+
+    [Parameter]
+    public Guid UserId { get; set; }
+
+    // Экземпляр модели, к которому привязана форма.
+    private UpdateUserCommand updateUserModel;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // var res = await _mediatr.Send(new GetUserQuery { Id = UserId, UserProfile =  UserProfile });
+
+        // // Проверяем статус ответа от сервера
+        // if (res.Status) // Если Status === true, значит, пользователь успешно найден
+        // {            
+        //     var user = res.Data;
+
+        //     updateUserModel.Id = user.Id;
+        //     updateUserModel.UserName = user.UserName;
+        //     updateUserModel.FullName = user.FullName;
+        //     updateUserModel.PasswordExpiryDate = user.PasswordExpiryDate;
+        //     updateUserModel.Disabled = user.Disabled;
+
+        //     _snackbar.Add($"Пользователь '{updateUserModel.UserName}' успешно загружен!", Severity.Success);
+
+        //     StateHasChanged();
+        // }
+        // else // Если Status === false, значит, произошла ошибка при получении пользователя
+        // {
+        //     _snackbar.Add($"Не удалось загрузить пользователя: {res.StatusMessage}", Severity.Error);
+        // }
+    }    
+
+    /// <summary>
+    /// Этот метод вызывается при нажатии на кнопку "Сохранить".
+    /// </summary>
+    private async Task SubmitForm()
+    {
+        // updateUserModel.UserProfile = UserProfile;
+        // var res = await _mediatr.Send(updateUserModel);
+
+        // if (res.Status)
+        // {
+        //     var user = res.Data;
+        //     _snackbar.Add($"Пользователь успешно сохранен: {user.UserName} !", Severity.Success);
+        //     MudDialog.Close(DialogResult.Ok(true));
+        // }
+        // else
+        // {
+        //     _snackbar.Add($"Ошибка сохранения! {res.StatusMessage}", Severity.Warning);
+        // }
+    }
+}

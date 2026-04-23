@@ -1,0 +1,58 @@
+﻿@using IST.Contracts.Features.Auth.Commands
+@using Microsoft.AspNetCore.Components.Forms
+
+<MudPaper Style="width:250px;" Class="" Elevation="0">
+    <EditForm Model="@createRoleModel" OnValidSubmit="SubmitForm">
+        <DataAnnotationsValidator />
+        @* <MudText Typo="Typo.h5" GutterBottom="true">Добавить новый роль</MudText> *@
+        <MudTextField T="string"
+                      @bind-Value="createRoleModel.Request.Name"
+                      For="@(() => createRoleModel.Request.Name)"
+                      Label="Название"
+                      Required="true"/>
+        <MudTextField T="string"
+                      @bind-Value="createRoleModel.Request.Description"
+                      For="@(() => createRoleModel.Request.Description)"
+                      Label="Описание"
+                      Required="true"
+                      Class="mt-3" />
+        <MudButton ButtonType="ButtonType.Submit"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Class="mt-5">
+                   Добавить
+        </MudButton>
+    </EditForm>
+</MudPaper>
+
+@code {
+
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    // [CascadingParameter(Name = "UserProfile")]
+    // private UserProfile UserProfile { get; set; }
+
+    // Экземпляр модели, к которому привязана форма.
+    private CreateRoleCommand createRoleModel;
+
+    /// <summary>
+    /// Этот метод вызывается при нажатии на кнопку "Создать".
+    /// </summary>
+    private async Task SubmitForm()
+    {
+        //createRoleModel.UserProfile =  UserProfile;
+        // var res = await _mediatr.Send(createRoleModel);
+
+        // if (res.Status)
+        // {
+        //     var user = res.Data;
+        //     _snackbar.Add($"Роль успешно создан: {user.Name} !", Severity.Success);
+        //     MudDialog.Close(DialogResult.Ok(true));
+        // }
+        // else
+        // {
+        //     _snackbar.Add($"Ошибка создания! {res.StatusMessage}", Severity.Warning);
+        // }
+    }
+}

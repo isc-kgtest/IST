@@ -1,15 +1,15 @@
 ﻿using IST.Core.Entities.Auth;
 using Microsoft.EntityFrameworkCore;
 
-namespace IST.Infrastructure.AppDbContext;
+namespace IST.Infrastructure.Data;
 
 public static class DataSeed
 {
     public static void DBInitializer(this ModelBuilder modelBuilder)
     {
-        var adminUserId = Guid.NewGuid();
-        var adminRoleId = Guid.NewGuid();
-        var userRoleId = Guid.NewGuid();
+        var adminUserId = Guid.Parse("8a92bd3a-58c3-433b-8255-8abef51421b0");
+        var adminRoleId = Guid.Parse("e2c2c0d5-1c5c-482a-904b-3549cd0ebba0");
+        var userRoleId = Guid.Parse("c8a2b5e3-4f91-4d9a-8b8a-7c9b8e1a2f3b");
 
         var createDateTimeUtcNow = new DateTime(2026, 4, 21, 10, 48, 0, DateTimeKind.Utc);
 

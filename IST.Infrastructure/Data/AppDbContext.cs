@@ -1,3 +1,4 @@
+using ActualLab.Fusion.EntityFramework;
 using ActualLab.Fusion.EntityFramework.Operations;
 using IST.Core.Entities.Auth;
 using IST.Core.Entities.BaseEntities;
@@ -5,9 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Linq.Expressions;
 
-namespace IST.Infrastructure.AppDbContext;
+namespace IST.Infrastructure.Data;
 
-public class AppDbContext : DbContext, IAppDbContext
+public class AppDbContext : DbContextBase, IAppDbContext
 {
     //private readonly ICurrentUserService? _currentUser;
 
@@ -25,8 +26,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<UserRolesEntity> UserRoles { get; set; } = null!;
 
     // Служебные таблицы Fusion для распределённой инвалидации
-    public DbSet<DbOperation> Operations { get; protected set; } = null!;
-    public DbSet<DbEvent> Events { get; protected set; } = null!;
+    //public DbSet<DbOperation> Operations { get; protected set; } = null!;
+    //public DbSet<DbEvent> Events { get; protected set; } = null!;
+
 
     public DatabaseFacade Database => base.Database;
 
@@ -49,6 +51,8 @@ public class AppDbContext : DbContext, IAppDbContext
                 entityType.SetQueryFilter(filter);
             }
         }
+
+        modelBuilder.DBInitializer();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace IST.Infrastructure.AppDbContext;
+namespace IST.Infrastructure.Data;
 
 public interface IAppDbContext
 {

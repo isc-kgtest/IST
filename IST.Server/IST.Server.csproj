@@ -11,7 +11,7 @@
     <PackageReference Include="ActualLab.Rpc.Server" Version="12.3.70" />
 	<PackageReference Include="ActualLab.Fusion.EntityFramework" Version="12.3.70" />
 	<PackageReference Include="ActualLab.CommandR" Version="12.3.70" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.6">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
@@ -21,6 +21,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>ae97c1c0-57c5-4b31-ab07-b6eb50f20d58</UserSecretsId>
   </PropertyGroup>
 
 </Project>
