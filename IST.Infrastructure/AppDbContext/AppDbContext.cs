@@ -9,13 +9,22 @@ namespace IST.Infrastructure.AppDbContext;
 
 public class AppDbContext : DbContext, IAppDbContext
 {
+    //private readonly ICurrentUserService? _currentUser;
+
+    //public AppDbContext(DbContextOptions options, ICurrentUserService? currentUser = null)
+    //    : base(options)
+    //{
+    //    _currentUser = currentUser;
+    //}
+
     public AppDbContext(DbContextOptions options) : base(options) { }
 
+    // === DbSets ===
     public DbSet<UserEntity> Users { get; set; } = null!;
     public DbSet<RoleEntity> Roles { get; set; } = null!;
     public DbSet<UserRolesEntity> UserRoles { get; set; } = null!;
 
-    // Обязательная таблица для распределенной инвалидации Fusion
+    // Служебные таблицы Fusion для распределённой инвалидации
     public DbSet<DbOperation> Operations { get; protected set; } = null!;
     public DbSet<DbEvent> Events { get; protected set; } = null!;
 
@@ -45,23 +54,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         ApplySoftDelete();
-
-        // --- Логика для автоматического аудита ---
-        var entries = ChangeTracker
-            .Entries()
-            .Where(e => e.Entity is IAuditableEntity && (
-                    e.State == EntityState.Added ||
-                    e.State == EntityState.Modified));
-
-        foreach (var entityEntry in entries)
-        {
-            ((IAuditableEntity)entityEntry.Entity).UpdatedAt = DateTime.UtcNow;
-
-            if (entityEntry.State == EntityState.Added)
-            {
-                ((IAuditableEntity)entityEntry.Entity).CreatedAt = DateTime.UtcNow;
-            }
-        }
+        ApplyAudit();
 
         return await base.SaveChangesAsync(cancellationToken);
     }
@@ -75,7 +68,36 @@ public class AppDbContext : DbContext, IAppDbContext
             {
                 entry.State = EntityState.Modified;
                 softDeletable.IsDeleted = true;
+                softDeletable.DeletedAt = DateTime.UtcNow;
+                softDeletable.DeletedBy = null; // Здесь можно установить ID текущего пользователя, если он доступен
             }
+        }
+    }
+
+    /// <summary>
+    /// Автоматически заполняет поля аудита CreatedAt/By и UpdatedAt/By
+    /// для всех сущностей, реализующих IAuditableEntity.
+    /// </summary>
+    private void ApplyAudit()
+    {
+        //var userId = _currentUser?.UserId;
+        //var now = DateTime.UtcNow;
+
+        var entries = ChangeTracker.Entries<IAuditableEntity>()
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+
+        foreach (var entry in entries)
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Entity.CreatedAt = DateTime.UtcNow;
+                entry.Entity.CreatedBy = null;
+            }
+
+            // UpdatedAt/By ставим и при Added (для единообразия), 
+            // и при Modified (в том числе после soft delete)
+            entry.Entity.UpdatedAt = DateTime.UtcNow;
+            entry.Entity.UpdatedBy = null;
         }
     }
 }
