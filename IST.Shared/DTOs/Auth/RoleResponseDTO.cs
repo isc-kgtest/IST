@@ -1,12 +1,14 @@
-﻿using System.Runtime.Serialization;
+using MemoryPack;
+using System.Runtime.Serialization;
 
 namespace IST.Shared.DTOs.Auth;
 
 [DataContract]
-public class RoleResponseDTO
+[MemoryPackable]
+public partial class RoleResponseDTO
 {
-    [DataMember] public Guid Id { get; set; }
-    [DataMember] public string Name { get; set; } = "";
-    [DataMember] public string Description { get; set; } = "";
-    [DataMember] public bool Disabled { get; set; }
+    [DataMember, MemoryPackOrder(0)] public Guid Id { get; set; }
+    [DataMember, MemoryPackOrder(1)] public string Name { get; set; } = "";
+    [DataMember, MemoryPackOrder(2)] public string Description { get; set; } = "";
+    [DataMember, MemoryPackOrder(3)] public bool Disabled { get; set; }
 }

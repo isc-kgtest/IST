@@ -1,16 +1,18 @@
-﻿using System.Runtime.Serialization;
+using MemoryPack;
+using System.Runtime.Serialization;
 
 namespace IST.Shared.DTOs.Auth;
 
 [DataContract]
-public class UserResponseDTO
+[MemoryPackable]
+public partial class UserResponseDTO
 {
-    [DataMember]
+    [DataMember, MemoryPackOrder(0)]
     public Guid Id { get; set; }
 
-    [DataMember]
+    [DataMember, MemoryPackOrder(1)]
     public string Login { get; set; } = "";
 
-    [DataMember]
+    [DataMember, MemoryPackOrder(2)]
     public string FullName { get; set; } = "";
 }
