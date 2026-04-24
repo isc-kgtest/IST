@@ -70,6 +70,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration config)
     {
         var fusion = services.AddFusion();
+        fusion.AddBlazor();
         var rpc = services.AddRpc();
 
         var rpcUrl = config["RpcServer:Url"] ?? "ws://localhost:5000";

@@ -68,7 +68,7 @@
 		return new Model(BuildUserRows(users), BuildRoleRows(roles));
 	}
 
-	private Task RefreshAsync() => State.Recompute();
+	private async Task RefreshAsync() => await State.Recompute();
 
 	private List<Dictionary<string, object>> BuildUserRows(IReadOnlyList<UserEntity> users) =>
 		users
