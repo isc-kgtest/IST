@@ -24,85 +24,93 @@ public class AuthCommands : IAuthCommands
     public virtual async Task<ResponseDTO<SessionUserDto>> LoginAsync(
         LoginCommand command, CancellationToken cancellationToken = default)
     {
-        if (Invalidation.IsActive)
-            return default!;
-
-        await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
-
-        var normalizedLogin = command.Login.ToLower().Trim();
-        var user = await dbContext.Users.AsNoTracking()
-            .Include(u => u.UserRoles.Where(ur => !ur.IsDeleted))
-                .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Login == normalizedLogin, cancellationToken);
-
-        if (user is null || !PasswordUtils.VerifyPassword(command.Password, user.Password))
+        try
         {
+            if (Invalidation.IsActive)
+                return default!;
+
+            await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
+
+            var normalizedLogin = command.Login.ToLower().Trim();
+            var user = await dbContext.Users.AsNoTracking()
+                .Include(u => u.UserRoles.Where(ur => !ur.IsDeleted))
+                    .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Login == normalizedLogin, cancellationToken);
+
+            if (user is null || !PasswordUtils.VerifyPassword(command.Password, user.Password))
+            {
+                return new()
+                {
+                    Status = false,
+                    StatusMessage = "Неверный логин или пароль.",
+                    StatusCode = ResponseStatusCode.Unauthorized
+                };
+            }
+
+            if (!user.IsActive)
+            {
+                return new()
+                {
+                    Status = false,
+                    StatusMessage = "Ваша учётная запись отключена. Свяжитесь с администратором.",
+                    StatusCode = ResponseStatusCode.Forbidden
+                };
+            }
+
+            // Проверка срока действия пароля
+            if (user.PasswordExpiryDate <= DateTime.UtcNow)
+            {
+                return new()
+                {
+                    Status = false,
+                    StatusMessage = "Срок действия пароля истёк. Необходимо сменить пароль.",
+                    StatusCode = ResponseStatusCode.PasswordExpired,
+                    Data = new SessionUserDto
+                    {
+                        Id = user.Id,
+                        Login = user.Login,
+                        FullName = user.FullName,
+                    }
+                };
+            }
+
+            // Обновляем дату последнего входа
+            var writableUser = await dbContext.Users
+                .FirstOrDefaultAsync(u => u.Id == user.Id, cancellationToken);
+            if (writableUser != null)
+            {
+                writableUser.LastDateLogin = DateTime.UtcNow;
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            var activeRoles = user.UserRoles
+                .Where(ur => ur.StartDate <= DateTime.UtcNow
+                          && (ur.EndDate == null || ur.EndDate > DateTime.UtcNow))
+                .Select(ur => ur.Role.Name)
+                .Distinct()
+                .ToList();
+
             return new()
             {
-                Status = false,
-                StatusMessage = "Неверный логин или пароль.",
-                StatusCode = ResponseStatusCode.Unauthorized
-            };
-        }
-
-        if (!user.IsActive)
-        {
-            return new()
-            {
-                Status = false,
-                StatusMessage = "Ваша учётная запись отключена. Свяжитесь с администратором.",
-                StatusCode = ResponseStatusCode.Forbidden
-            };
-        }
-
-        // Проверка срока действия пароля
-        if (user.PasswordExpiryDate <= DateTime.UtcNow)
-        {
-            return new()
-            {
-                Status = false,
-                StatusMessage = "Срок действия пароля истёк. Необходимо сменить пароль.",
-                StatusCode = ResponseStatusCode.PasswordExpired,
+                Status = true,
+                StatusMessage = "Вход выполнен успешно.",
+                StatusCode = ResponseStatusCode.Ok,
                 Data = new SessionUserDto
                 {
                     Id = user.Id,
                     Login = user.Login,
                     FullName = user.FullName,
+                    Email = user.EMail,
+                    IsActive = user.IsActive,
+                    Roles = activeRoles
                 }
             };
         }
-
-        // Обновляем дату последнего входа
-        var writableUser = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == user.Id, cancellationToken);
-        if (writableUser != null)
+        catch (Exception ex)
         {
-            writableUser.LastDateLogin = DateTime.UtcNow;
-            await dbContext.SaveChangesAsync(cancellationToken);
+            Console.WriteLine(ex.ToString());
+            throw new Exception(ex.ToString());
         }
-
-        var activeRoles = user.UserRoles
-            .Where(ur => ur.StartDate <= DateTime.UtcNow
-                      && (ur.EndDate == null || ur.EndDate > DateTime.UtcNow))
-            .Select(ur => ur.Role.Name)
-            .Distinct()
-            .ToList();
-
-        return new()
-        {
-            Status = true,
-            StatusMessage = "Вход выполнен успешно.",
-            StatusCode = ResponseStatusCode.Ok,
-            Data = new SessionUserDto
-            {
-                Id = user.Id,
-                Login = user.Login,
-                FullName = user.FullName,
-                Email = user.EMail,
-                IsActive = user.IsActive,
-                Roles = activeRoles
-            }
-        };
     }
 
     // Users

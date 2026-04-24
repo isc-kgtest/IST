@@ -4,6 +4,7 @@ using ActualLab.Fusion.Authentication;
 using ActualLab.Fusion.Blazor;
 using ActualLab.Fusion.Blazor.Authentication;
 using ActualLab.Fusion.EntityFramework;
+using ActualLab.Fusion.EntityFramework.Npgsql;
 using ActualLab.Rpc;
 using ActualLab.Rpc.Server;
 using IST.Contracts.Features.Auth;
@@ -23,6 +24,15 @@ public static class ServiceCollectionExtensions
         services.AddDbContextFactory<AppDbContext>(options =>
             options.UseNpgsql(connectionString));
 
+        // EF Core интеграция
+        services.AddDbContextServices<AppDbContext>(db =>
+        {
+            db.AddOperations(operations =>
+            {
+                operations.AddNpgsqlOperationLogWatcher();
+            });
+        });
+
         return services;
     }
 
@@ -38,12 +48,7 @@ public static class ServiceCollectionExtensions
         // 🔹 Core builders — ОДИН РАЗ
         var fusion = services.AddFusion();
         var commander = services.AddCommander();
-        var rpc = services.AddRpc();
-
-        // ---------------- INFRASTRUCTURE ----------------
-
-        // EF Core интеграция
-        services.AddDbContextServices<AppDbContext>();
+        var rpc = services.AddRpc();       
 
         // Fusion Blazor + Auth
         fusion.AddBlazor()
