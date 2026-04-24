@@ -1,0 +1,10 @@
+--- ./IST.Admin/Extensions/ServiceCollectionExtensions.cs
++++ ./IST.Admin/Extensions/ServiceCollectionExtensions.cs
+@@ -73,6 +73,7 @@
+     public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration config)
+     {
+         var fusion = services.AddFusion();
++        fusion.AddAuthentication().AddBlazor();
+         var rpc = services.AddRpc();
+
+         var rpcUrl = config["RpcServer:Url"] ?? "ws://localhost:5000";
