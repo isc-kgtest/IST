@@ -1,11 +1,15 @@
 @page "/authadminpage"
 @using ActualLab.Fusion
+@using ActualLab.Fusion.Blazor
 @using IST.Admin.Auth.Components
 @using IST.Contracts.Features.Auth
 @using IST.Contracts.Features.Auth.Commands
+@using IST.Core.Entities.Auth
 @using IST.UI.Models
 
 @attribute [Authorize(Roles = "admin")]
+
+@inherits ComputedStateComponent<AuthAdminPage.Model>
 
 @inject IAuthCommands _authCommands
 @inject IAuthQueries _authQueries
@@ -18,25 +22,25 @@
 
 <MudTabs @bind-DisableRipple="_processing" Outlined="true" Rounded="true" ApplyEffectsToContainer="true">
 	<MudTabPanel Text="Пользователи">
-		<MudDynamicTable Title="Список" Items="@_users">
+		<MudDynamicTable Title="Список" Items="@(State.Value?.UserRows ?? new())">
 			<AddButton>
 				<MudTooltip Placement="Placement.Top" Text="Создать нового пользователя">
 					<MudFab Class="ml-2" Color="Color.Success" StartIcon="@Icons.Material.Rounded.GroupAdd" OnClick="ShowCreateUserForm" />
 				</MudTooltip>
 				<MudTooltip Placement="Placement.Top" Text="Обновить">
-					<MudFab Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="GetAllUsers" />
+					<MudFab Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
 				</MudTooltip>
 			</AddButton>
 		</MudDynamicTable>
 	</MudTabPanel>
 	<MudTabPanel Text="Роли">
-		<MudDynamicTable Title="Список" Items="@_roles">
+		<MudDynamicTable Title="Список" Items="@(State.Value?.RoleRows ?? new())">
 			<AddButton>
 				<MudTooltip Placement="Placement.Top" Text="Добавить новый роль">
 					<MudFab Class="ml-2" Color="Color.Success" StartIcon="@Icons.Material.Rounded.AddModerator" OnClick="ShowCreateRoleForm" />
 				</MudTooltip>
 				<MudTooltip Placement="Placement.Top" Text="Обновить">
-					<MudFab Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="GetAllRoles" />
+					<MudFab Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
 				</MudTooltip>
 			</AddButton>
 		</MudDynamicTable>
@@ -45,56 +49,91 @@
 
 @code {
 
-	private bool _processing = false;
-
-	private List<Dictionary<string, object>> _users { get; set; } = new();
-	private List<Dictionary<string, object>> _roles { get; set; } = new();
-
-	protected override async Task OnInitializedAsync()
+	public sealed record Model(
+		List<Dictionary<string, object>> UserRows,
+		List<Dictionary<string, object>> RoleRows)
 	{
-		await GetAllUsers();
-		await GetAllRoles();
-		StateHasChanged();
+		public static readonly Model Empty = new(new(), new());
 	}
 
-	private async Task GetAllRoles()
-	{
-		try
-		{
-			var roles = await _authQueries.GetAllRolesAsync();
+	private bool _processing;
 
-			_roles = roles
-				.Where(r => !r.IsDeleted)
-				.OrderBy(r => r.CreatedAt)
-				.Select(role => new Dictionary<string, object>
-				{
-					{ "Название", role.Name },
-					{ "Описание", role.Description ?? "" },
-					{ "Дата создания", role.CreatedAt.ToString("dd.MM.yyyy HH:mm") },
-					{ "FunctionMenu", new List<MenuItemModel>
+	protected override ComputedState<Model>.Options GetStateOptions()
+		=> new() { InitialValue = Model.Empty };
+
+	protected override async Task<Model> ComputeState(CancellationToken cancellationToken)
+	{
+		var users = await _authQueries.GetAllUsersAsync(cancellationToken);
+		var roles = await _authQueries.GetAllRolesAsync(cancellationToken);
+		return new Model(BuildUserRows(users), BuildRoleRows(roles));
+	}
+
+	private Task RefreshAsync() => State.Recompute();
+
+	private List<Dictionary<string, object>> BuildUserRows(IReadOnlyList<UserEntity> users) =>
+		users
+			.Where(u => !u.IsDeleted)
+			.OrderBy(u => u.CreatedAt)
+			.Select(user => new Dictionary<string, object>
+			{
+				{ "Логин", user.Login },
+				{ "Полное имя", user.FullName },
+				{ "Email", user.EMail ?? "" },
+				{ "Дата создания", user.CreatedAt.ToString("dd.MM.yyyy") },
+				{ "Срок действия пароля", user.PasswordExpiryDate.ToString("dd.MM.yyyy") },
+				{ "Активен", user.IsActive ? "Да" : "Нет" },
+				{ "FunctionMenu", new List<MenuItemModel>
+					{
+						new MenuItemModel
 						{
-							new MenuItemModel
-							{
-								Label = "Изменить",
-								OnClickAsync = () => ShowUpdateRoleForm(role.Id)
-							},
-							new MenuItemModel
-							{
-								Label = "Удалить",
-								OnClickAsync = () => ShowRoleDeleteDialog(role.Id, role.Name)
-							},
-						}
+							Label = "Профиль",
+							OnClickAsync = () => ShowUserProfile(user.Id)
+						},
+						new MenuItemModel
+						{
+							Label = "Роли",
+							OnClickAsync = () => ShowEditUserRoleForm(user.Id)
+						},
+						new MenuItemModel
+						{
+							Label = "Сброс пароля",
+							OnClickAsync = () => ShowResetPasswordForm(user.Login)
+						},
+						new MenuItemModel
+						{
+							Label = "Удалить",
+							OnClickAsync = () => ShowUserDeleteDialog(user.Id, user.FullName)
+						},
 					}
-				})
-				.ToList();
+				}
+			})
+			.ToList();
 
-			StateHasChanged();
-		}
-		catch (Exception ex)
-		{
-			_snackbar.Add($"Не удалось загрузить роли: {ex.Message}", Severity.Warning);
-		}
-	}
+	private List<Dictionary<string, object>> BuildRoleRows(IReadOnlyList<RoleEntity> roles) =>
+		roles
+			.Where(r => !r.IsDeleted)
+			.OrderBy(r => r.CreatedAt)
+			.Select(role => new Dictionary<string, object>
+			{
+				{ "Название", role.Name },
+				{ "Описание", role.Description ?? "" },
+				{ "Дата создания", role.CreatedAt.ToString("dd.MM.yyyy HH:mm") },
+				{ "FunctionMenu", new List<MenuItemModel>
+					{
+						new MenuItemModel
+						{
+							Label = "Изменить",
+							OnClickAsync = () => ShowUpdateRoleForm(role.Id)
+						},
+						new MenuItemModel
+						{
+							Label = "Удалить",
+							OnClickAsync = () => ShowRoleDeleteDialog(role.Id, role.Name)
+						},
+					}
+				}
+			})
+			.ToList();
 
 	private async Task ShowCreateRoleForm()
 	{
@@ -108,15 +147,8 @@
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-
 		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Добавить новый роль", parameters, options);
-
-		var result = await dialogRef.Result;
-
-		if (!result.Canceled)
-		{
-			await GetAllRoles();
-		}
+		await dialogRef.Result;
 	}
 
 	private async Task ShowRoleDeleteDialog(Guid id, string roleName)
@@ -146,31 +178,23 @@
 		};
 
 		var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Medium };
-
 		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить роль \"{roleName}\"?", parameters, options);
 
 		var result = await dialogRef.Result;
+		if (result.Canceled)
+			return;
 
-		if (!result.Canceled)
+		try
 		{
-			try
-			{
-				var res = await _authCommands.DeleteRoleAsync(new DeleteRoleCommand(Session.Default, id));
-
-				if (res.Status)
-				{
-					_snackbar.Add($"Роль удалена: {res.Data}", Severity.Success);
-					await GetAllRoles();
-				}
-				else
-				{
-					_snackbar.Add($"Не удалось удалить роль: {res.StatusMessage}", Severity.Warning);
-				}
-			}
-			catch (Exception ex)
-			{
-				_snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
-			}
+			var res = await _authCommands.DeleteRoleAsync(new DeleteRoleCommand(Session.Default, id));
+			if (res.Status)
+				_snackbar.Add($"Роль удалена: {res.Data}", Severity.Success);
+			else
+				_snackbar.Add($"Не удалось удалить роль: {res.StatusMessage}", Severity.Warning);
+		}
+		catch (Exception ex)
+		{
+			_snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
 		}
 	}
 
@@ -187,67 +211,8 @@
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-
 		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Роль", parameters, options);
-
-		var result = await dialogRef.Result;
-
-		if (!result.Canceled)
-		{
-			await GetAllRoles();
-		}
-	}
-
-	private async Task GetAllUsers()
-	{
-		try
-		{
-			var users = await _authQueries.GetAllUsersAsync();
-
-			_users = users
-				.Where(u => !u.IsDeleted)
-				.OrderBy(u => u.CreatedAt)
-				.Select(user => new Dictionary<string, object>
-				{
-					{ "Логин", user.Login },
-					{ "Полное имя", user.FullName },
-					{ "Email", user.EMail ?? "" },
-					{ "Дата создания", user.CreatedAt.ToString("dd.MM.yyyy") },
-					{ "Срок действия пароля", user.PasswordExpiryDate.ToString("dd.MM.yyyy") },
-					{ "Активен", user.IsActive ? "Да" : "Нет" },
-					{ "FunctionMenu", new List<MenuItemModel>
-						{
-							new MenuItemModel
-							{
-								Label = "Профиль",
-								OnClickAsync = () => ShowUserProfile(user.Id)
-							},
-							new MenuItemModel
-							{
-								Label = "Роли",
-								OnClickAsync = () => ShowEditUserRoleForm(user.Id)
-							},
-							new MenuItemModel
-							{
-								Label = "Сброс пароля",
-								OnClickAsync = () => ShowResetPasswordForm(user.Login)
-							},
-							new MenuItemModel
-							{
-								Label = "Удалить",
-								OnClickAsync = () => ShowUserDeleteDialog(user.Id, user.FullName)
-							},
-						}
-					}
-				})
-				.ToList();
-
-			StateHasChanged();
-		}
-		catch (Exception ex)
-		{
-			_snackbar.Add($"Не удалось загрузить пользователей: {ex.Message}", Severity.Warning);
-		}
+		await dialogRef.Result;
 	}
 
 	private async Task ShowEditUserRoleForm(Guid userId)
@@ -263,15 +228,8 @@
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Large };
-
 		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Роли пользователя", parameters, options);
-
-		var result = await dialogRef.Result;
-
-		if (!result.Canceled)
-		{
-			await GetAllUsers();
-		}
+		await dialogRef.Result;
 	}
 
 	private async Task ShowResetPasswordForm(string login)
@@ -287,15 +245,8 @@
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-
 		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Сброс пароля", parameters, options);
-
-		var result = await dialogRef.Result;
-
-		if (!result.Canceled)
-		{
-			await GetAllUsers();
-		}
+		await dialogRef.Result;
 	}
 
 	private async Task ShowUserDeleteDialog(Guid id, string userFullName)
@@ -325,31 +276,23 @@
 		};
 
 		var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Medium };
-
 		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить пользователя \"{userFullName}\"?", parameters, options);
 
 		var result = await dialogRef.Result;
+		if (result.Canceled)
+			return;
 
-		if (!result.Canceled)
+		try
 		{
-			try
-			{
-				var res = await _authCommands.DeleteUserAsync(new DeleteUserCommand(Session.Default, id));
-
-				if (res.Status)
-				{
-					_snackbar.Add($"Пользователь удалён: {res.Data}", Severity.Success);
-					await GetAllUsers();
-				}
-				else
-				{
-					_snackbar.Add($"Не удалось удалить пользователя: {res.StatusMessage}", Severity.Warning);
-				}
-			}
-			catch (Exception ex)
-			{
-				_snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
-			}
+			var res = await _authCommands.DeleteUserAsync(new DeleteUserCommand(Session.Default, id));
+			if (res.Status)
+				_snackbar.Add($"Пользователь удалён: {res.Data}", Severity.Success);
+			else
+				_snackbar.Add($"Не удалось удалить пользователя: {res.StatusMessage}", Severity.Warning);
+		}
+		catch (Exception ex)
+		{
+			_snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
 		}
 	}
 
@@ -366,15 +309,8 @@
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-
 		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Профиль", parameters, options);
-
-		var result = await dialogRef.Result;
-
-		if (!result.Canceled)
-		{
-			await GetAllUsers();
-		}
+		await dialogRef.Result;
 	}
 
 	private async Task ShowCreateUserForm()
@@ -389,14 +325,7 @@
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-
 		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Создание пользователя", parameters, options);
-
-		var result = await dialogRef.Result;
-
-		if (!result.Canceled)
-		{
-			await GetAllUsers();
-		}
+		await dialogRef.Result;
 	}
 }
