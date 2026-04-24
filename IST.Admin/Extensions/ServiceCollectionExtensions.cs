@@ -70,7 +70,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration config)
     {
         var fusion = services.AddFusion();
-        fusion.AddBlazor();
 
         var rpcUrl = config["RpcServer:Url"] ?? "ws://localhost:5000";
 
@@ -80,8 +79,15 @@ public static class ServiceCollectionExtensions
         // падают на fallback AutoInvalidationDelay (~1 с polling).
         fusion.Rpc.AddWebSocketClient(rpcUrl);
 
+        // Клиент IAuth нужен, чтобы Session.Default корректно ассоциировался
+        // с RPC-соединением и сервер знал, каким клиентам слать инвалидации.
+        fusion.AddAuthClient();
+
         fusion.AddClient<IAuthQueries>();
         fusion.AddClient<IAuthCommands>();
+
+        // Blazor-интеграция Fusion (CircuitHub и т.п.) + AuthN на Blazor-стороне.
+        fusion.AddBlazor().AddAuthentication();
 
         // Commander для диспатча команд
         services.AddCommander();

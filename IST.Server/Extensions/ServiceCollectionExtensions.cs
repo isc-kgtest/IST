@@ -29,6 +29,15 @@ public static class ServiceCollectionExtensions
         {
             db.AddOperations(operations =>
             {
+                // Без явной настройки OperationLogReader ActualLab 12.3
+                // опрашивает DbOperation ~1 раз/сек, что пробегает по
+                // всему компьютед-графу и «дрожит» UI. Нотификации Postgres
+                // ловит Watcher ниже — инвалидация прилетает мгновенно,
+                // а ридер нужен только как fallback: период делаем большим.
+                operations.ConfigureOperationLogReader(_ => new()
+                {
+                    CheckPeriod = TimeSpan.FromMinutes(1),
+                });
                 operations.AddNpgsqlOperationLogWatcher();
             });
         });
