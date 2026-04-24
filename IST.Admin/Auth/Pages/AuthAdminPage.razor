@@ -22,36 +22,88 @@
 
 <MudTabs @bind-DisableRipple="_processing" Outlined="true" Rounded="true" ApplyEffectsToContainer="true">
 	<MudTabPanel Text="Пользователи">
-		<MudDynamicTable Title="Список" Items="@(State.Value?.UserRows ?? new())">
-			<AddButton>
-				<MudTooltip Placement="Placement.Top" Text="Создать нового пользователя">
-					<MudFab Class="ml-2" Color="Color.Success" StartIcon="@Icons.Material.Rounded.GroupAdd" OnClick="ShowCreateUserForm" />
-				</MudTooltip>
-				<MudTooltip Placement="Placement.Top" Text="Обновить">
-					<MudFab Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
-				</MudTooltip>
-			</AddButton>
-		</MudDynamicTable>
+        <MudTable Items="@(State.ValueOrDefault?.Users ?? new())" Hover="true" Striped="true" Dense="true">
+            <ToolBarContent>
+                <MudText Typo="Typo.h6">Пользователи</MudText>
+                <MudSpacer />
+                <MudTooltip Placement="Placement.Top" Text="Создать нового пользователя">
+                    <MudFab Size="Size.Small" Class="ml-2" Color="Color.Success" StartIcon="@Icons.Material.Rounded.GroupAdd" OnClick="ShowCreateUserForm" />
+                </MudTooltip>
+                <MudTooltip Placement="Placement.Top" Text="Обновить">
+                    <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
+                </MudTooltip>
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>Логин</MudTh>
+                <MudTh>Полное имя</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Дата создания</MudTh>
+                <MudTh>Срок действия пароля</MudTh>
+                <MudTh>Активен</MudTh>
+                <MudTh>Действия</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Логин">@context.Login</MudTd>
+                <MudTd DataLabel="Полное имя">@context.FullName</MudTd>
+                <MudTd DataLabel="Email">@context.EMail</MudTd>
+                <MudTd DataLabel="Дата создания">@context.CreatedAt.ToString("dd.MM.yyyy")</MudTd>
+                <MudTd DataLabel="Срок действия пароля">@context.PasswordExpiryDate.ToString("dd.MM.yyyy")</MudTd>
+                <MudTd DataLabel="Активен">@(context.IsActive ? "Да" : "Нет")</MudTd>
+                <MudTd DataLabel="Действия">
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+                        <MudMenuItem OnClick="() => ShowUserProfile(context.Id)">Профиль</MudMenuItem>
+                        <MudMenuItem OnClick="() => ShowEditUserRoleForm(context.Id)">Роли</MudMenuItem>
+                        <MudMenuItem OnClick="() => ShowResetPasswordForm(context.Login)">Сброс пароля</MudMenuItem>
+                        <MudMenuItem OnClick="() => ShowUserDeleteDialog(context.Id, context.FullName)">Удалить</MudMenuItem>
+                    </MudMenu>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager />
+            </PagerContent>
+        </MudTable>
 	</MudTabPanel>
 	<MudTabPanel Text="Роли">
-		<MudDynamicTable Title="Список" Items="@(State.Value?.RoleRows ?? new())">
-			<AddButton>
-				<MudTooltip Placement="Placement.Top" Text="Добавить новый роль">
-					<MudFab Class="ml-2" Color="Color.Success" StartIcon="@Icons.Material.Rounded.AddModerator" OnClick="ShowCreateRoleForm" />
-				</MudTooltip>
-				<MudTooltip Placement="Placement.Top" Text="Обновить">
-					<MudFab Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
-				</MudTooltip>
-			</AddButton>
-		</MudDynamicTable>
+        <MudTable Items="@(State.ValueOrDefault?.Roles ?? new())" Hover="true" Striped="true" Dense="true">
+            <ToolBarContent>
+                <MudText Typo="Typo.h6">Роли</MudText>
+                <MudSpacer />
+                <MudTooltip Placement="Placement.Top" Text="Добавить новую роль">
+                    <MudFab Size="Size.Small" Class="ml-2" Color="Color.Success" StartIcon="@Icons.Material.Rounded.AddModerator" OnClick="ShowCreateRoleForm" />
+                </MudTooltip>
+                <MudTooltip Placement="Placement.Top" Text="Обновить">
+                    <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
+                </MudTooltip>
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>Название</MudTh>
+                <MudTh>Описание</MudTh>
+                <MudTh>Дата создания</MudTh>
+                <MudTh>Действия</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Название">@context.Name</MudTd>
+                <MudTd DataLabel="Описание">@context.Description</MudTd>
+                <MudTd DataLabel="Дата создания">@context.CreatedAt.ToString("dd.MM.yyyy HH:mm")</MudTd>
+                <MudTd DataLabel="Действия">
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+                        <MudMenuItem OnClick="() => ShowUpdateRoleForm(context.Id)">Изменить</MudMenuItem>
+                        <MudMenuItem OnClick="() => ShowRoleDeleteDialog(context.Id, context.Name)">Удалить</MudMenuItem>
+                    </MudMenu>
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager />
+            </PagerContent>
+        </MudTable>
 	</MudTabPanel>
 </MudTabs>
 
 @code {
 
 	public sealed record Model(
-		List<Dictionary<string, object>> UserRows,
-		List<Dictionary<string, object>> RoleRows)
+		List<UserDto> Users,
+		List<RoleDto> Roles)
 	{
 		public static readonly Model Empty = new(new(), new());
 	}
@@ -62,84 +114,23 @@
 		=> new()
 		{
 			InitialValue = Model.Empty,
-			// Пересчитывать сразу на инвалидации, без дефолтной 1-секундной
-			// задержки (она создаёт ощущение "polling каждую секунду").
-			//UpdateDelayer = FixedDelayer.Instant,
+			UpdateDelayer = FixedDelayer.Get(0),
 		};
 
 	protected override async Task<Model> ComputeState(CancellationToken cancellationToken)
 	{
 		var users = await _authQueries.GetAllUsersAsync(cancellationToken);
 		var roles = await _authQueries.GetAllRolesAsync(cancellationToken);
-		return new Model(BuildUserRows(users), BuildRoleRows(roles));
+		
+		var activeUsers = users.Where(u => !u.IsDeleted).OrderBy(u => u.CreatedAt).ToList();
+		var activeRoles = roles.Where(r => !r.IsDeleted).OrderBy(r => r.CreatedAt).ToList();
+		
+		return new Model(activeUsers, activeRoles);
 	}
 
 	private async Task RefreshAsync() => await State.Recompute();
 
-	private List<Dictionary<string, object>> BuildUserRows(IReadOnlyList<UserEntity> users) =>
-		users
-			.Where(u => !u.IsDeleted)
-			.OrderBy(u => u.CreatedAt)
-			.Select(user => new Dictionary<string, object>
-			{
-				{ "Логин", user.Login },
-				{ "Полное имя", user.FullName },
-				{ "Email", user.EMail ?? "" },
-				{ "Дата создания", user.CreatedAt.ToString("dd.MM.yyyy") },
-				{ "Срок действия пароля", user.PasswordExpiryDate.ToString("dd.MM.yyyy") },
-				{ "Активен", user.IsActive ? "Да" : "Нет" },
-				{ "FunctionMenu", new List<MenuItemModel>
-					{
-						new MenuItemModel
-						{
-							Label = "Профиль",
-							OnClickAsync = () => ShowUserProfile(user.Id)
-						},
-						new MenuItemModel
-						{
-							Label = "Роли",
-							OnClickAsync = () => ShowEditUserRoleForm(user.Id)
-						},
-						new MenuItemModel
-						{
-							Label = "Сброс пароля",
-							OnClickAsync = () => ShowResetPasswordForm(user.Login)
-						},
-						new MenuItemModel
-						{
-							Label = "Удалить",
-							OnClickAsync = () => ShowUserDeleteDialog(user.Id, user.FullName)
-						},
-					}
-				}
-			})
-			.ToList();
 
-	private List<Dictionary<string, object>> BuildRoleRows(IReadOnlyList<RoleEntity> roles) =>
-		roles
-			.Where(r => !r.IsDeleted)
-			.OrderBy(r => r.CreatedAt)
-			.Select(role => new Dictionary<string, object>
-			{
-				{ "Название", role.Name },
-				{ "Описание", role.Description ?? "" },
-				{ "Дата создания", role.CreatedAt.ToString("dd.MM.yyyy HH:mm") },
-				{ "FunctionMenu", new List<MenuItemModel>
-					{
-						new MenuItemModel
-						{
-							Label = "Изменить",
-							OnClickAsync = () => ShowUpdateRoleForm(role.Id)
-						},
-						new MenuItemModel
-						{
-							Label = "Удалить",
-							OnClickAsync = () => ShowRoleDeleteDialog(role.Id, role.Name)
-						},
-					}
-				}
-			})
-			.ToList();
 
 	private async Task ShowCreateRoleForm()
 	{

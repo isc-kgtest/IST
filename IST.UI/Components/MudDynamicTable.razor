@@ -73,7 +73,6 @@
     public List<Dictionary<string, object>> Items { get; set; } = new();
 
     private List<Dictionary<string, object>> _previousItems;
-    private int _previousHash;
 
     private MudTable<Dictionary<string, object>> table;
 
@@ -85,36 +84,11 @@
     {
         if (Items == null) return;
 
-        // Сравниваем по содержимому, а не по ссылке — 
-        // Fusion ComputeState каждый раз создаёт новые объекты,
-        // даже если данные не изменились.
-        //var hash = ComputeContentHash(Items);
-        //if (hash != _previousHash || _previousItems == null)
+        if (_previousItems != Items)
         {
             _previousItems = Items;
-            //_previousHash = hash;
             await ReloadTable();
         }
-    }
-
-    /// <summary>
-    /// Вычисляет хэш содержимого данных таблицы.
-    /// Игнорирует столбец "FunctionMenu" (содержит делегаты).
-    /// </summary>
-    private static int ComputeContentHash(List<Dictionary<string, object>> items)
-    {
-        var hash = new HashCode();
-        hash.Add(items.Count);
-        foreach (var row in items)
-        {
-            foreach (var kvp in row)
-            {
-                if (kvp.Key == "FunctionMenu") continue;
-                hash.Add(kvp.Key);
-                hash.Add(kvp.Value?.ToString() ?? "");
-            }
-        }
-        return hash.ToHashCode();
     }
 
     public async Task ReloadTable()

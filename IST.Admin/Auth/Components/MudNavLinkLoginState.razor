@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Routing
 @using System.Security.Claims
 
@@ -27,7 +27,7 @@
 	
 	public async Task Logout()
 	{
-		_navManager.NavigateTo("/logout");
+		_navManager.NavigateTo("/api/auth/logout", forceLoad: true);
 	}
 
 	private async Task ShowChangePasswordForm()
@@ -48,7 +48,7 @@
 				["ChildContent"] = (RenderFragment)(builder =>
 				{
 					builder.OpenComponent<ChangePasswordForm>(0); // Правильный способ добавить компонент
-					builder.AddAttribute(1, "UserName", userName);
+					builder.AddAttribute(1, "Login", userName);
 					builder.CloseComponent();
 				}),
 			};

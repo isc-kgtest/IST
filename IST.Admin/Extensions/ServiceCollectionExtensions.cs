@@ -82,10 +82,10 @@ public static class ServiceCollectionExtensions
         // падают на fallback AutoInvalidationDelay (~1 с polling).
         fusion.Rpc.AddWebSocketClient(rpcUrl);
 
-        // Клиент IAuth нужен, чтобы Session.Default корректно ассоциировался
-        // с RPC-соединением и сервер знал, каким клиентам слать инвалидации.
+        // Клиент IAuth нужен для правильной работы Session/аутентификации
         fusion.AddAuthClient();
 
+        // Клиенты Queries и Commands.
         fusion.AddClient<IAuthQueries>();
         fusion.AddClient<IAuthCommands>();
 

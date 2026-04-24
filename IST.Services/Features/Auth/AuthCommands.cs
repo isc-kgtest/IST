@@ -24,15 +24,21 @@ public class AuthCommands : IAuthCommands
     public virtual async Task<ResponseDTO<SessionUserDto>> LoginAsync(
         LoginCommand command, CancellationToken cancellationToken = default)
     {
+        // LoginAsync не инвалидирует кэш — факт входа не меняет
+        // ни список пользователей, ни ролей. Блок обязателен, иначе
+        // Fusion вызовет метод второй раз в режиме инвалидации.
+        if (Invalidation.IsActive)
+            return default!;
+
         try
         {
-            if (Invalidation.IsActive)
-                return default!;
-
-            await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
+            // Используем обычный (НЕ операционный) контекст для чтения —
+            // CreateOperationDbContext пишет в _Operations при каждом Save,
+            // что запускает NpgsqlWatcher и инвалидирует весь кэш.
+            await using var readCtx = await _dbHub.CreateDbContext(cancellationToken);
 
             var normalizedLogin = command.Login.ToLower().Trim();
-            var user = await dbContext.Users.AsNoTracking()
+            var user = await readCtx.Users.AsNoTracking()
                 .Include(u => u.UserRoles.Where(ur => !ur.IsDeleted))
                     .ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.Login == normalizedLogin, cancellationToken);
@@ -74,13 +80,16 @@ public class AuthCommands : IAuthCommands
                 };
             }
 
-            // Обновляем дату последнего входа
-            var writableUser = await dbContext.Users
+            // Обновляем LastDateLogin через отдельный обычный контекст.
+            // Это side-effect, не бизнес-операция — не должен создавать
+            // запись в _Operations и тем самым инвалидировать кэш.
+            await using var writeCtx = await _dbHub.CreateDbContext(true, cancellationToken);
+            var writableUser = await writeCtx.Users
                 .FirstOrDefaultAsync(u => u.Id == user.Id, cancellationToken);
             if (writableUser != null)
             {
                 writableUser.LastDateLogin = DateTime.UtcNow;
-                await dbContext.SaveChangesAsync(cancellationToken);
+                await writeCtx.SaveChangesAsync(cancellationToken);
             }
 
             var activeRoles = user.UserRoles
@@ -223,6 +232,7 @@ public class AuthCommands : IAuthCommands
         {
             _ = _queries.GetAllUsersAsync(default);
             _ = _queries.GetUserByIdAsync(request.Id, default);
+            _ = _queries.GetUserByIdWithRolesAsync(request.Id, default);
             return default!;
         }
 
@@ -299,6 +309,7 @@ public class AuthCommands : IAuthCommands
         {
             _ = _queries.GetAllUsersAsync(default);
             _ = _queries.GetUserByIdAsync(command.UserId, default);
+            _ = _queries.GetUserByIdWithRolesAsync(command.UserId, default);
             _ = _queries.GetUserByLoginAsync(string.Empty, default);
             return default!;
         }
@@ -589,6 +600,7 @@ public class AuthCommands : IAuthCommands
         {
             _ = _queries.GetAllRolesAsync(default);
             _ = _queries.GetRoleByIdAsync(command.Request.Id, default);
+            _ = _queries.GetAllUsersAsync(default); // Role name change affects UserDto.UserRoles
             return default!;
         }
 
@@ -713,6 +725,7 @@ public class AuthCommands : IAuthCommands
         if (Invalidation.IsActive)
         {
             _ = _queries.GetUserByIdAsync(command.Request.UserId, default);
+            _ = _queries.GetUserByIdWithRolesAsync(command.Request.UserId, default);
             _ = _queries.GetAllUsersAsync(default);
             return default!;
         }
@@ -802,6 +815,8 @@ public class AuthCommands : IAuthCommands
         if (Invalidation.IsActive)
         {
             _ = _queries.GetAllUsersAsync(default);
+            _ = _queries.GetUserByIdAsync(command.Request.UserId, default);
+            _ = _queries.GetUserByIdWithRolesAsync(command.Request.UserId, default);
             return default!;
         }
       
@@ -863,6 +878,8 @@ public class AuthCommands : IAuthCommands
         if (Invalidation.IsActive)
         {
             _ = _queries.GetAllUsersAsync(default);
+            _ = _queries.GetUserByIdAsync(command.UserId, default);
+            _ = _queries.GetUserByIdWithRolesAsync(command.UserId, default);
             return default!;
         }
 

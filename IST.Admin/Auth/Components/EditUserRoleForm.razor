@@ -112,7 +112,6 @@ else
 
             var allRoles = await _authQueries.GetAllRolesAsync();
             var assignedByRole = user.UserRoles
-                .Where(ur => !ur.IsDeleted)
                 .GroupBy(ur => ur.RoleId)
                 .ToDictionary(g => g.Key, g => g.First());
 
@@ -203,7 +202,7 @@ else
 
             foreach (var item in toRevoke)
             {
-                var command = new DeleteUserRoleCommand(Session.Default, item.UserRoleId!.Value);
+                var command = new DeleteUserRoleCommand(Session.Default, UserId, item.UserRoleId!.Value);
                 var res = await _authCommands.DeleteUserRoleAsync(command);
                 if (res.Status)
                 {

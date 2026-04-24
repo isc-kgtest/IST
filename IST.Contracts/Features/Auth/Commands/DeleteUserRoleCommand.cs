@@ -9,5 +9,6 @@ namespace IST.Contracts.Features.Auth.Commands;
 [MemoryPackable]
 public partial record DeleteUserRoleCommand(
     [property: DataMember] Session Session,
+    [property: DataMember] Guid UserId,
     [property: DataMember] Guid UserRoleId
 ) : ICommand<ResponseDTO<string>>;

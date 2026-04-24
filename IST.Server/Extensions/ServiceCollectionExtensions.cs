@@ -29,15 +29,25 @@ public static class ServiceCollectionExtensions
         {
             db.AddOperations(operations =>
             {
-                // Без явной настройки OperationLogReader ActualLab 12.3
-                // опрашивает DbOperation ~1 раз/сек, что пробегает по
-                // всему компьютед-графу и «дрожит» UI. Нотификации Postgres
-                // ловит Watcher ниже — инвалидация прилетает мгновенно,
-                // а ридер нужен только как fallback: период делаем большим.
+                // ConfigureOperationLogReader — fallback-читатель для _Operations.
+                // NpgsqlWatcher ловит события мгновенно через NOTIFY;
+                // ридер нужен только как резервный механизм.
                 operations.ConfigureOperationLogReader(_ => new()
                 {
-                    CheckPeriod = TimeSpan.FromMinutes(1),
+                    CheckPeriod = TimeSpan.FromMinutes(5),
                 });
+
+                // Корень проблемы: DbEventLogReader по умолчанию опрашивает "_Events" каждую секунду.
+                // Если в таблице есть необработанные записи (State=0) — оставшиеся от старого
+                // PresenceReporter или других сессий — Fusion видит их и инвалидирует
+                // весь граф computed, что запускает SELECT users+roles каждую секунду.
+                // Переводим его в режим редкой проверки — инвалидация будет приходить
+                // через NpgsqlWatcher (мгновенно при реальном изменении ДБ).
+                operations.ConfigureEventLogReader(_ => new()
+                {
+                    CheckPeriod = TimeSpan.FromMinutes(5),
+                });
+
                 operations.AddNpgsqlOperationLogWatcher();
             });
         });
@@ -60,9 +70,13 @@ public static class ServiceCollectionExtensions
         var rpc = services.AddRpc();       
 
         // Fusion Blazor + Auth
+        // ВАЖНО: AddPresenceReporter() НЕ вызываем на сервере!
+        // PresenceReporter пишет в _Operations каждую секунду для каждой
+        // подключённой сессии. NpgsqlWatcher ловит эти записи и инвалидирует
+        // весь граф Computed — именно это вызывало цикличный SELECT каждую секунду.
+        // PresenceReporter нужен только на клиенте (IST.Admin).
         fusion.AddBlazor()
-            .AddAuthentication()
-            .AddPresenceReporter();
+            .AddAuthentication();
 
         fusion.AddClient<IAuth>(); // IAuth = a client of backend's IAuth
         fusion.Configure<IAuth>().IsServer(typeof(IAuth)).HasClient(); // Expose IAuth (a client) via RPC
@@ -70,15 +84,11 @@ public static class ServiceCollectionExtensions
         rpc.AddWebSocketServer();
 
         // Queries (Compute)
-        fusion.AddComputeService<IAuthQueries, AuthQueries>();
+        fusion.AddService<IAuthQueries, AuthQueries>(RpcServiceMode.Server);
 
         // Commands
-        services.AddScoped<IAuthCommands, AuthCommands>();
+        fusion.AddService<IAuthCommands, AuthCommands>(RpcServiceMode.Server);
         commander.AddHandlers<AuthCommands>();
-
-        // RPC endpoints
-        rpc.AddServer<IAuthQueries, AuthQueries>();
-        rpc.AddServer<IAuthCommands, AuthCommands>();
 
         return services;
     }

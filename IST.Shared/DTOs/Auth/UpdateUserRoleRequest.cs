@@ -12,8 +12,11 @@ public partial class UpdateUserRoleRequest
     public Guid Id { get; set; }
 
     [DataMember, MemoryPackOrder(1), Required]
+    public Guid UserId { get; set; }
+
+    [DataMember, MemoryPackOrder(2), Required]
     public DateTime StartDate { get; set; }
 
-    [DataMember, MemoryPackOrder(2)]
+    [DataMember, MemoryPackOrder(3)]
     public DateTime? EndDate { get; set; }
 }
