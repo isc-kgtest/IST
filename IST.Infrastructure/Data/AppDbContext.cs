@@ -26,8 +26,8 @@ public class AppDbContext : DbContextBase, IAppDbContext
     public DbSet<UserRolesEntity> UserRoles { get; set; } = null!;
 
     // Служебные таблицы Fusion для распределённой инвалидации
-    //public DbSet<DbOperation> Operations { get; protected set; } = null!;
-    //public DbSet<DbEvent> Events { get; protected set; } = null!;
+    public DbSet<DbOperation> Operations { get; protected set; } = null!;
+    public DbSet<DbEvent> Events { get; protected set; } = null!;
 
 
     public DatabaseFacade Database => base.Database;

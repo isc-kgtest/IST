@@ -2,6 +2,7 @@ using IST.Contracts.Features.Auth;
 using IST.Contracts.Features.Auth.Commands;
 using IST.Shared.DTOs.Auth;
 using IST.Shared.Enums;
+using IST.Shared.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using System.Security.Claims;
@@ -34,42 +35,64 @@ public static class AuthEndpoints
             request.Login,
             request.Password);
 
-        var result = await authCommands.LoginAsync(command);
+        var res = await authCommands.LoginAsync(command);
 
-        if (!result.Status)
+        if (res.Status)
         {
-            return Results.Json(new LoginResponse(false, result.StatusMessage, (int)result.StatusCode));
-        }
+            var user = res.Data;
 
-        var user = result.Data!;
+            var newSessionId = Guid.NewGuid();
 
-        // Формируем claims для cookie
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Login),
-            new("FullName", user.FullName),
-            new(ClaimTypes.Email, user.Email ?? ""),
-        };
-
-        foreach (var role in user.Roles)
-        {
-            claims.Add(new Claim(ClaimTypes.Role, role));
-        }
-
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
-
-        await httpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            principal,
-            new AuthenticationProperties
+            var userSession = new UserSession
             {
-                IsPersistent = true,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
-            });
+                UserId = user.Id,
+                SessionId = newSessionId,
+                Login = user.Login,
+                FullName = user.FullName,
+                Roles = user?.Roles
+            };
 
-        return Results.Json(new LoginResponse(true, result.StatusMessage, (int)result.StatusCode));
+            var authClaims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.NameIdentifier, userSession.UserId.ToString()),
+                    new Claim(ClaimTypes.Name, userSession.Login),
+                    new Claim(ClaimTypes.Surname, userSession.FullName),
+                    new Claim(ClaimTypes.PrimarySid, newSessionId.ToString())
+                };
+
+            foreach (var userRole in userSession.Roles)
+            {
+                authClaims.Add(new Claim(ClaimTypes.Role, userRole));
+            }
+
+            var claimsIdentity = new ClaimsIdentity(authClaims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var authProperties = new AuthenticationProperties { IsPersistent = true };
+
+            await httpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(claimsIdentity),
+                authProperties);
+
+            //// --- ДИАГНОСТИЧЕСКОЕ ЛОГИРОВАНИЕ ---
+            //// Проверяем, был ли добавлен заголовок Set-Cookie в ответ сервера.
+            //var setCookieHeader = httpContext.Response.Headers.SetCookie.ToString();
+            //logger.LogWarning("Set-Cookie header after SignInAsync: '{Header}'", string.IsNullOrEmpty(setCookieHeader) ? "EMPTY" : setCookieHeader);
+            //// --- КОНЕЦ ДИАГНОСТИКИ ---
+
+            return Results.Ok(new
+            {
+                Status = true,
+                StatusCode = res.StatusCode,
+                StatusMessage = "Вход успешно выполнен."
+            });
+        }
+
+        return Results.Ok(new
+        {
+            Status = false,
+            StatusCode = res.StatusCode,
+            StatusMessage = res.StatusMessage
+        });
     }
 
     private static async Task<IResult> HandleLogout(HttpContext httpContext)
