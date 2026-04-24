@@ -1,18 +1,21 @@
+using MemoryPack;
 using System.Runtime.Serialization;
 
 namespace IST.Shared.DTOs.Auth;
 
-/// <summary>
-/// DTO текущего авторизованного пользователя.
-/// Используется для формирования ClaimsPrincipal в AuthenticationStateProvider.
-/// </summary>
-[DataContract]
-public class SessionUserDto
+[MemoryPackable]
+public partial class SessionUserDto
 {
-    [DataMember] public Guid Id { get; set; }
-    [DataMember] public string Login { get; set; } = "";
-    [DataMember] public string FullName { get; set; } = "";
-    [DataMember] public string Email { get; set; } = "";
-    [DataMember] public bool IsActive { get; set; }
-    [DataMember] public List<string> Roles { get; set; } = new();
+    [MemoryPackOrder(0)]
+    public Guid Id { get; set; }
+    [MemoryPackOrder(1)]
+    public string Login { get; set; } = "";
+    [MemoryPackOrder(2)]
+    public string FullName { get; set; } = "";
+    [MemoryPackOrder(3)]
+    public string Email { get; set; } = "";
+    [MemoryPackOrder(4)]
+    public bool IsActive { get; set; }
+    [MemoryPackOrder(5)]
+    public List<string> Roles { get; set; } = new();
 }

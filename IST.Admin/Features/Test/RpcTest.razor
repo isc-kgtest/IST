@@ -1,0 +1,41 @@
+@page "/rpc-test"
+@using IST.Contracts.Features.Auth
+@using IST.Core.Entities.Auth
+@inject IAuthQueries AuthQueries
+
+<MudText Typo="Typo.h4">RPC Test</MudText>
+
+@if (users == null && error == null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (error != null)
+{
+    <MudAlert Severity="Severity.Error">@error</MudAlert>
+}
+else
+{
+    <MudList T="string">
+        @foreach (var user in users)
+        {
+            <MudListItem>@user.Login (@user.FullName)</MudListItem>
+        }
+    </MudList>
+}
+
+@code {
+    private List<UserEntity>? users;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            users = await AuthQueries.GetAllUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.ToString();
+        }
+    }
+}

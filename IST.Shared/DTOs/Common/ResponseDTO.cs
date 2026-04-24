@@ -1,13 +1,19 @@
-﻿using IST.Shared.Enums;
+using MemoryPack;
+using IST.Shared.Enums;
 using IST.Shared.Interface;
 
 namespace IST.Shared.DTOs.Common;
 
-public class ResponseDTO<T> : IResponseDTO
+[MemoryPackable]
+public partial class ResponseDTO<T> : IResponseDTO
 {
+    [MemoryPackOrder(0)]
     public T? Data { get; set; }
+    [MemoryPackOrder(1)]
     public bool Status { get; set; }
+    [MemoryPackOrder(2)]
     public ResponseStatusCode StatusCode { get; set; }
+    [MemoryPackOrder(3)]
     public string StatusMessage { get; set; } = string.Empty;
 
     // Успешный результат

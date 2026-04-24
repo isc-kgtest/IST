@@ -1,6 +1,6 @@
 // IST.Admin auth helper — используется LoginForm.razor для POST к /api/auth/login
 window.authHelper = {
-    login: async function (loginData) {
+    loginWithCookie: async function (loginData) {
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',

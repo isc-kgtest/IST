@@ -77,6 +77,9 @@ public static class ServiceCollectionExtensions
         rpc.AddWebSocketClient(rpcUrl);
 
         // RPC-прокси к IST.Server
+        rpc.AddClient<IAuthQueries>();
+        rpc.AddClient<IAuthCommands>();
+
         fusion.AddClient<IAuthQueries>();
         fusion.AddClient<IAuthCommands>();
 
