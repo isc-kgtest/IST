@@ -1,4 +1,4 @@
-﻿
+
 using IST.Contracts.Features.Auth;
 using IST.Core.Entities.Auth;
 using IST.Infrastructure.Data;
@@ -36,6 +36,8 @@ public class AuthQueries : IAuthQueries
     {
         var dbContext = await _dbHub.CreateDbContext(cancellationToken);
         var users = await dbContext.Users.AsNoTracking()
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .ToListAsync(cancellationToken);
         return users;
     }
@@ -58,4 +60,14 @@ public class AuthQueries : IAuthQueries
         return roles;
     }
 
+    [ComputeMethod]
+    public virtual async Task<UserEntity?> GetUserByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var dbContext = await _dbHub.CreateDbContext(cancellationToken);
+        var user = await dbContext.Users.AsNoTracking()
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        return user;
+    }
 }

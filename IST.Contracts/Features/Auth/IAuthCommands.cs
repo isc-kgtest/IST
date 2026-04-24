@@ -1,12 +1,15 @@
-﻿using IST.Contracts.Features.Auth.Commands;
+using IST.Contracts.Features.Auth.Commands;
 using IST.Core.Entities.Auth;
 using IST.Shared.DTOs.Auth;
 using IST.Shared.DTOs.Common;
 
 namespace IST.Contracts.Features.Auth;
 
-public interface IAuthCommands : ICommandService
+public interface IAuthCommands : ICommandService, IComputeService
 {
+    // Auth
+    Task<ResponseDTO<SessionUserDto>> LoginAsync(LoginCommand command, CancellationToken cancellationToken = default);
+
     //Users
     Task<ResponseDTO<UserResponseDTO>> CreateUserAsync(CreateUserCommand command, CancellationToken cancellationToken = default);
     Task<ResponseDTO<UserResponseDTO>> UpdateUserAsync(UpdateUserCommand command, CancellationToken cancellationToken = default);

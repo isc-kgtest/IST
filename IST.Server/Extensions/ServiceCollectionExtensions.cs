@@ -59,11 +59,12 @@ public static class ServiceCollectionExtensions
         fusion.AddComputeService<IAuthQueries, AuthQueries>();
 
         // Commands
-        services.AddScoped<AuthCommands>();
+        services.AddScoped<IAuthCommands, AuthCommands>();
         commander.AddHandlers<AuthCommands>();
 
         // RPC endpoints
         rpc.AddServer<IAuthQueries, AuthQueries>();
+        rpc.AddServer<IAuthCommands, AuthCommands>();
 
         return services;
     }

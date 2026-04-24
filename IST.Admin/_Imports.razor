@@ -5,11 +5,18 @@
 @using Microsoft.AspNetCore.Components.Web
 @using static Microsoft.AspNetCore.Components.Web.RenderMode
 @using Microsoft.AspNetCore.Components.Web.Virtualization
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.JSInterop
 @using IST.Admin
 @using IST.Admin.Shared.Layout
+@using IST.Admin.Auth.Components
 @using MudBlazor
 @using IST.UI.Components
+@using IST.Contracts.Features.Auth
+@using IST.Contracts.Features.Auth.Commands
+@using IST.Core.Entities.Auth
+@using IST.Shared.DTOs.Auth
+@using IST.Shared.DTOs.Common
 
 @inject ISnackbar _snackbar
 @inject IDialogService _dialogService

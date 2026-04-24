@@ -1,3 +1,4 @@
+using IST.Admin.Auth;
 using IST.Admin.Extensions;
 using MudBlazor.Services;
 
@@ -36,7 +37,17 @@ app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Auth API endpoints (login/logout)
+app.MapAuthEndpoints();
+
 app.MapRazorComponents<IST.Admin.Shared.App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+
+
+
+
+
+

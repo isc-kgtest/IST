@@ -1,4 +1,4 @@
-﻿using ActualLab.Fusion;
+using ActualLab.Fusion;
 using IST.Core.Entities.Auth;
 
 namespace IST.Contracts.Features.Auth;
@@ -15,4 +15,7 @@ public interface IAuthQueries : IComputeService
     Task<RoleEntity?> GetRoleByIdAsync(Guid id, CancellationToken cancellationToken = default);
     [ComputeMethod]
     Task<List<RoleEntity>> GetAllRolesAsync(CancellationToken cancellationToken = default);
+
+    [ComputeMethod]
+    Task<UserEntity?> GetUserByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default);
 }

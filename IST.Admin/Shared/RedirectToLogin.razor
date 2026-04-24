@@ -1,0 +1,9 @@
+@* Вспомогательный компонент для редиректа на /login *@
+@inject NavigationManager NavManager
+
+@code {
+    protected override void OnInitialized()
+    {
+        NavManager.NavigateTo("/login", forceLoad: true);
+    }
+}

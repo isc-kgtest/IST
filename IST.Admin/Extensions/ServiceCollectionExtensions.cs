@@ -1,7 +1,9 @@
 using ActualLab.Fusion;
 using ActualLab.Rpc;
+using IST.Admin.Auth;
 using IST.Contracts.Features.Auth;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
 using System.Threading.RateLimiting;
 
 namespace IST.Admin.Extensions;
@@ -15,7 +17,7 @@ public static class ServiceCollectionExtensions
             .AddCookie(options =>
             {
                 options.LoginPath = "/login";
-                options.LogoutPath = "/logout";
+                options.LogoutPath = "/api/auth/logout";
                 options.AccessDeniedPath = "/login";
                 options.ExpireTimeSpan = TimeSpan.FromHours(8);
                 options.SlidingExpiration = true;
@@ -30,9 +32,15 @@ public static class ServiceCollectionExtensions
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-            options.AddPolicy("ContentEditor", policy => policy.RequireRole("Admin", "Editor"));
+            options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
+            options.AddPolicy("ContentEditor", policy => policy.RequireRole("admin", "editor"));
         });
+
+        // HttpContext доступ для AuthenticationStateProvider
+        services.AddHttpContextAccessor();
+
+        // Кастомный AuthenticationStateProvider (читает claims из cookie)
+        services.AddScoped<AuthenticationStateProvider, FusionAuthenticationStateProvider>();
 
         return services;
     }
@@ -68,10 +76,11 @@ public static class ServiceCollectionExtensions
 
         rpc.AddWebSocketClient(rpcUrl);
 
-        // 🔥 только прокси
-        rpc.AddClient<IAuthQueries>();
+        // RPC-прокси к IST.Server
+        fusion.AddClient<IAuthQueries>();
+        fusion.AddClient<IAuthCommands>();
 
-        // 🔥 команды
+        // Commander для диспатча команд
         services.AddCommander();
 
         return services;
