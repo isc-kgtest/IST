@@ -71,17 +71,15 @@ public static class ServiceCollectionExtensions
     {
         var fusion = services.AddFusion();
         fusion.AddBlazor();
-        var rpc = services.AddRpc();
 
         var rpcUrl = config["RpcServer:Url"] ?? "ws://localhost:5000";
 
-        rpc.AddWebSocketClient(rpcUrl);
+        // WebSocket-клиент поднимаем через Fusion-ную RPC-шину (fusion.Rpc),
+        // а не через отдельный services.AddRpc(). Иначе получаются две RPC-
+        // инфраструктуры: одна без Fusion-перехватчика, и compute-клиенты
+        // падают на fallback AutoInvalidationDelay (~1 с polling).
+        fusion.Rpc.AddWebSocketClient(rpcUrl);
 
-        // Fusion-клиенты: сами регистрируют нужный RPC-клиент и оборачивают
-        // вызовы в Computed<T>, подписанный на серверные инвалидации.
-        // Не добавлять rpc.AddClient<T>() для тех же интерфейсов — плоский
-        // RPC-клиент перебьёт Fusion-обёртку и compute-методы свалятся
-        // на дефолтный AutoInvalidationDelay (≈ 1 с polling).
         fusion.AddClient<IAuthQueries>();
         fusion.AddClient<IAuthCommands>();
 
