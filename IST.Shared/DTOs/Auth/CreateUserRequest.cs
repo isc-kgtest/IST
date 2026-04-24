@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 namespace IST.Shared.DTOs.Auth;
 
 [DataContract] // Обязательно для сериализации во Fusion
-public class CreateUserRequest
+public partial class CreateUserRequest
 {
     [DataMember, Required(ErrorMessage = "Фамилия обязательна")]
     public string Surname { get; set; } = "";

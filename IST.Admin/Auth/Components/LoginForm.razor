@@ -14,8 +14,8 @@
             </div>
             <div class="d-flex flex-column gap-4">
                 <div>
-                    <MudTextField @bind-Value="loginModel.UserName" Label="Логин" Variant="Variant.Text"
-                                      For="@(() => loginModel.UserName)" autocomplete="off" />
+                        <MudTextField @bind-Value="loginModel.Login" Label="Логин" Variant="Variant.Text"
+                                      For="@(() => loginModel.Login)" autocomplete="off" />
                 </div>
                 <div>
                     <MudTextField @bind-Value="loginModel.Password" Label="Пароль" Variant="Variant.Text"
@@ -96,7 +96,7 @@
                     ["ChildContent"] = (RenderFragment)(builder =>
                     {
                         builder.OpenComponent<ChangePasswordForm>(0); // Правильный способ добавить компонент
-                        builder.AddAttribute(1, "UserName", loginModel.UserName);
+                            builder.AddAttribute(1, "Login", loginModel.Login);
                         builder.CloseComponent();
                     }),
                 };
@@ -123,7 +123,7 @@
 
     public class GetLoginQuery
     {
-        public string UserName { get; set; }
+        public string Login { get; set; }
         public string Password { get; set; }
     }     
 }
