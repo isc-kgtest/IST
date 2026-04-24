@@ -77,10 +77,11 @@ public static class ServiceCollectionExtensions
 
         rpc.AddWebSocketClient(rpcUrl);
 
-        // RPC-прокси к IST.Server
-        rpc.AddClient<IAuthQueries>();
-        rpc.AddClient<IAuthCommands>();
-
+        // Fusion-клиенты: сами регистрируют нужный RPC-клиент и оборачивают
+        // вызовы в Computed<T>, подписанный на серверные инвалидации.
+        // Не добавлять rpc.AddClient<T>() для тех же интерфейсов — плоский
+        // RPC-клиент перебьёт Fusion-обёртку и compute-методы свалятся
+        // на дефолтный AutoInvalidationDelay (≈ 1 с polling).
         fusion.AddClient<IAuthQueries>();
         fusion.AddClient<IAuthCommands>();
 
