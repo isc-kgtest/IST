@@ -1,9 +1,14 @@
-﻿@page "/authadminpage"
-@using IST.Shared.Models
-@using IST.UI.Models
+@page "/authadminpage"
+@using ActualLab.Fusion
 @using IST.Admin.Auth.Components
+@using IST.Contracts.Features.Auth
+@using IST.Contracts.Features.Auth.Commands
+@using IST.UI.Models
 
 @attribute [Authorize(Roles = "admin")]
+
+@inject IAuthCommands _authCommands
+@inject IAuthQueries _authQueries
 
 <PageTitle>Панель управления доступом</PageTitle>
 
@@ -45,9 +50,6 @@
 	private List<Dictionary<string, object>> _users { get; set; } = new();
 	private List<Dictionary<string, object>> _roles { get; set; } = new();
 
-	[CascadingParameter(Name = "UserProfile")]
-	private UserProfile UserProfile { get; set; }
-
 	protected override async Task OnInitializedAsync()
 	{
 		await GetAllUsers();
@@ -57,67 +59,57 @@
 
 	private async Task GetAllRoles()
 	{
-		// var res = await _mediatr.Send(new GetAllRolesQuery { UserProfile =  UserProfile });
+		try
+		{
+			var roles = await _authQueries.GetAllRolesAsync();
 
-		// if (res.Status)
-		// {
-		// 	var roles = res.Data.OrderBy(x => x.CreateDate);
+			_roles = roles
+				.Where(r => !r.IsDeleted)
+				.OrderBy(r => r.CreatedAt)
+				.Select(role => new Dictionary<string, object>
+				{
+					{ "Название", role.Name },
+					{ "Описание", role.Description ?? "" },
+					{ "Дата создания", role.CreatedAt.ToString("dd.MM.yyyy HH:mm") },
+					{ "FunctionMenu", new List<MenuItemModel>
+						{
+							new MenuItemModel
+							{
+								Label = "Изменить",
+								OnClickAsync = () => ShowUpdateRoleForm(role.Id)
+							},
+							new MenuItemModel
+							{
+								Label = "Удалить",
+								OnClickAsync = () => ShowRoleDeleteDialog(role.Id, role.Name)
+							},
+						}
+					}
+				})
+				.ToList();
 
-		// 	if (roles.Any())
-		// 	{
-		// 		_roles = new();
-
-		// 		foreach (var role in roles)
-		// 		{
-		// 			_roles.Add(new Dictionary<string, object>
-		// 			{
-		// 				//{ "ID", user.Id },
-		// 				{ "Название", role.Name },
-		// 				{ "Описание", role.Description },
-		// 				{ "Дата создания", role.CreateDate },
-		// 				{ "FunctionMenu", new List<MenuItemModel>
-		// 					{
-		// 						new MenuItemModel
-		// 						{
-		// 							Label = "Изменить",
-		// 							OnClickAsync = async () => await ShowUpdateRoleForm(role.Id)
-		// 						},
-		// 						new MenuItemModel
-		// 						{
-		// 							Label = "Удалить",
-		// 							OnClickAsync = async () => await ShowRoleDeleteDialog(role.Id)
-		// 						},
-		// 					}
-		// 				}
-		// 			});
-		// 		}
-		// 	}
-		// 	StateHasChanged();
-		// }
-		// else
-		// {
-		// 	_snackbar.Add($"Не удалось загрузить данные. {res.StatusMessage}", Severity.Warning);
-		// }
+			StateHasChanged();
+		}
+		catch (Exception ex)
+		{
+			_snackbar.Add($"Не удалось загрузить роли: {ex.Message}", Severity.Warning);
+		}
 	}
 
 	private async Task ShowCreateRoleForm()
 	{
-		IDialogReference dialogRef = default!;
-		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
-		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
-
 		var parameters = new DialogParameters
 		{
 			["ChildContent"] = (RenderFragment)(builder =>
 			{
-				builder.OpenComponent<CreateRoleForm>(0); // Правильный способ добавить компонент
+				builder.OpenComponent<CreateRoleForm>(0);
 				builder.CloseComponent();
 			})
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
 
-		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Добавить новый роль", parameters, options);
+		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Добавить новый роль", parameters, options);
 
 		var result = await dialogRef.Result;
 
@@ -127,7 +119,7 @@
 		}
 	}
 
-	private async Task ShowRoleDeleteDialog(Ulid Id)
+	private async Task ShowRoleDeleteDialog(Guid id, string roleName)
 	{
 		IDialogReference dialogRef = default!;
 		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
@@ -155,48 +147,48 @@
 
 		var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Medium };
 
-		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Вы уверены, что хотите удалить?", parameters, options);
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить роль \"{roleName}\"?", parameters, options);
 
 		var result = await dialogRef.Result;
 
 		if (!result.Canceled)
 		{
-			// var res = await _mediatr.Send(new DeleteRoleCommand { Id = Id, UserProfile =  UserProfile });
+			try
+			{
+				var res = await _authCommands.DeleteRoleAsync(new DeleteRoleCommand(Session.Default, id));
 
-			// _snackbar.Configuration.SnackbarVariant = Variant.Outlined;
-			// _snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
-
-			// if (res.Status)
-			// {
-			// 	_snackbar.Add("Роль успешно удалён.", Severity.Success);
-			// 	await GetAllRoles();
-			// }
-			// else
-			// {
-			// 	_snackbar.Add("Не удалось удалить роль: " + res.StatusMessage, Severity.Error);
-			// }
+				if (res.Status)
+				{
+					_snackbar.Add($"Роль удалена: {res.Data}", Severity.Success);
+					await GetAllRoles();
+				}
+				else
+				{
+					_snackbar.Add($"Не удалось удалить роль: {res.StatusMessage}", Severity.Warning);
+				}
+			}
+			catch (Exception ex)
+			{
+				_snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
+			}
 		}
 	}
 
-	private async Task ShowUpdateRoleForm(Ulid RoleId)
+	private async Task ShowUpdateRoleForm(Guid roleId)
 	{
-		IDialogReference dialogRef = default!;
-		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
-		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
-
 		var parameters = new DialogParameters
 		{
 			["ChildContent"] = (RenderFragment)(builder =>
 			{
-				builder.OpenComponent<UpdateRoleForm>(0); // Правильный способ добавить компонент
-				builder.AddAttribute(1, "RoleId", RoleId);
+				builder.OpenComponent<UpdateRoleForm>(0);
+				builder.AddAttribute(1, "RoleId", roleId);
 				builder.CloseComponent();
 			})
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
 
-		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Роль", parameters, options);
+		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Роль", parameters, options);
 
 		var result = await dialogRef.Result;
 
@@ -208,81 +200,71 @@
 
 	private async Task GetAllUsers()
 	{
-		// var res = await _mediatr.Send(new GetAllUsersQuery { UserProfile =  UserProfile});
+		try
+		{
+			var users = await _authQueries.GetAllUsersAsync();
 
-		// if (res.Status)
-		// {
-		// 	var users = res.Data.OrderBy(x => x.CreateDate);
+			_users = users
+				.Where(u => !u.IsDeleted)
+				.OrderBy(u => u.CreatedAt)
+				.Select(user => new Dictionary<string, object>
+				{
+					{ "Логин", user.Login },
+					{ "Полное имя", user.FullName },
+					{ "Email", user.EMail ?? "" },
+					{ "Дата создания", user.CreatedAt.ToString("dd.MM.yyyy") },
+					{ "Срок действия пароля", user.PasswordExpiryDate.ToString("dd.MM.yyyy") },
+					{ "Активен", user.IsActive ? "Да" : "Нет" },
+					{ "FunctionMenu", new List<MenuItemModel>
+						{
+							new MenuItemModel
+							{
+								Label = "Профиль",
+								OnClickAsync = () => ShowUserProfile(user.Id)
+							},
+							new MenuItemModel
+							{
+								Label = "Роли",
+								OnClickAsync = () => ShowEditUserRoleForm(user.Id)
+							},
+							new MenuItemModel
+							{
+								Label = "Сброс пароля",
+								OnClickAsync = () => ShowResetPasswordForm(user.Login)
+							},
+							new MenuItemModel
+							{
+								Label = "Удалить",
+								OnClickAsync = () => ShowUserDeleteDialog(user.Id, user.FullName)
+							},
+						}
+					}
+				})
+				.ToList();
 
-		// 	if (users.Any())
-		// 	{
-		// 		_users = new();
-
-		// 		foreach (var user in users)
-		// 		{
-		// 			_users.Add(new Dictionary<string, object>
-		// 			{
-		// 				//{ "ID", user.Id },
-		// 				{ "Логин", user.UserName },
-		// 				{ "Полное имя", user.FullName },
-		// 				{ "Дата создания", user.CreateDate },
-		// 				{ "Срок действия пароля", user.PasswordExpiryDate },
-		// 				{ "FunctionMenu", new List<MenuItemModel>
-		// 					{
-		// 						new MenuItemModel
-		// 						{
-		// 							Label = "Профиль",
-		// 							OnClickAsync = async () => await ShowUserProfile(user.Id)
-		// 						},
-		// 						new MenuItemModel
-		// 						{
-		// 							Label = "Роли",
-		// 							OnClickAsync = async () => await ShowEditUserRoleForm(user.Id)
-		// 						},
-		// 						new MenuItemModel
-		// 						{
-		// 							Label = "Сброс пароля",
-		// 							OnClickAsync = async () => await ShowResetPasswordForm(user.UserName)
-		// 						},
-		// 						new MenuItemModel
-		// 						{
-		// 							Label = "Удалить",
-		// 							OnClickAsync = async () => await ShowUserDeleteDialog(user.Id)
-		// 						},
-		// 					} 
-		// 				}
-		// 			});
-		// 		}
-		// 	}
-		// 	StateHasChanged();
-		// }
-		// else
-		// {
-		// 	_snackbar.Add($"Не удалось загрузить данные пользователей. {res.StatusMessage}", Severity.Warning);
-		// }
+			StateHasChanged();
+		}
+		catch (Exception ex)
+		{
+			_snackbar.Add($"Не удалось загрузить пользователей: {ex.Message}", Severity.Warning);
+		}
 	}
 
-
-
-	private async Task ShowEditUserRoleForm(Ulid UserId)
+	private async Task ShowEditUserRoleForm(Guid userId)
 	{
-		IDialogReference dialogRef = default!;
-		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
-		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
-
 		var parameters = new DialogParameters
 		{
 			["ChildContent"] = (RenderFragment)(builder =>
 			{
-				builder.OpenComponent<EditUserRoleForm>(0); // Правильный способ добавить компонент
-				builder.AddAttribute(1, "UserId", UserId);
+				builder.OpenComponent<EditUserRoleForm>(0);
+				builder.AddAttribute(1, "UserId", userId);
 				builder.CloseComponent();
 			})
 		};
 
-		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Large };
 
-		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Профиль", parameters, options);
+		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Роли пользователя", parameters, options);
 
 		var result = await dialogRef.Result;
 
@@ -292,25 +274,21 @@
 		}
 	}
 
-	private async Task ShowResetPasswordForm(string UserName)
+	private async Task ShowResetPasswordForm(string login)
 	{
-		IDialogReference dialogRef = default!;
-		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
-		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
-
 		var parameters = new DialogParameters
 		{
 			["ChildContent"] = (RenderFragment)(builder =>
 			{
-				builder.OpenComponent<ResetPasswordForm>(0); // Правильный способ добавить компонент
-				builder.AddAttribute(1, "UserName", UserName);
+				builder.OpenComponent<ResetPasswordForm>(0);
+				builder.AddAttribute(1, "Login", login);
 				builder.CloseComponent();
 			})
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
 
-		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Сброс пароля", parameters, options);
+		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Сброс пароля", parameters, options);
 
 		var result = await dialogRef.Result;
 
@@ -320,7 +298,7 @@
 		}
 	}
 
-	private async Task ShowUserDeleteDialog(Ulid Id)
+	private async Task ShowUserDeleteDialog(Guid id, string userFullName)
 	{
 		IDialogReference dialogRef = default!;
 		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
@@ -348,48 +326,48 @@
 
 		var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Medium };
 
-		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Вы уверены, что хотите удалить этого пользователя?", parameters, options);
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить пользователя \"{userFullName}\"?", parameters, options);
 
 		var result = await dialogRef.Result;
 
 		if (!result.Canceled)
 		{
-			// var res = await _mediatr.Send(new DeleteUserCommand { Id = Id, UserProfile =  UserProfile });
+			try
+			{
+				var res = await _authCommands.DeleteUserAsync(new DeleteUserCommand(Session.Default, id));
 
-			// _snackbar.Configuration.SnackbarVariant = Variant.Outlined;
-			// _snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopCenter;
-
-			// if (res.Status)
-			// {
-			// 	_snackbar.Add("Пользователь успешно удалён.", Severity.Success);
-			// 	await GetAllUsers();
-			// }
-			// else
-			// {
-			// 	_snackbar.Add("Не удалось удалить пользователя: " + res.StatusMessage, Severity.Error);
-			// }
+				if (res.Status)
+				{
+					_snackbar.Add($"Пользователь удалён: {res.Data}", Severity.Success);
+					await GetAllUsers();
+				}
+				else
+				{
+					_snackbar.Add($"Не удалось удалить пользователя: {res.StatusMessage}", Severity.Warning);
+				}
+			}
+			catch (Exception ex)
+			{
+				_snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
+			}
 		}
 	}
 
-	private async Task ShowUserProfile(Ulid UserId)
+	private async Task ShowUserProfile(Guid userId)
 	{
-		IDialogReference dialogRef = default!;
-		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
-		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
-
 		var parameters = new DialogParameters
 		{
 			["ChildContent"] = (RenderFragment)(builder =>
 			{
-				builder.OpenComponent<UserProfileForm>(0); // Правильный способ добавить компонент
-				builder.AddAttribute(1, "UserId", UserId);
+				builder.OpenComponent<UserProfileForm>(0);
+				builder.AddAttribute(1, "UserId", userId);
 				builder.CloseComponent();
 			})
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
 
-		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Профиль", parameters, options);
+		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Профиль", parameters, options);
 
 		var result = await dialogRef.Result;
 
@@ -401,22 +379,18 @@
 
 	private async Task ShowCreateUserForm()
 	{
-		IDialogReference dialogRef = default!;
-		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
-		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
-
 		var parameters = new DialogParameters
 		{
 			["ChildContent"] = (RenderFragment)(builder =>
 			{
-				builder.OpenComponent<CreateUserForm>(0); // Правильный способ добавить компонент
+				builder.OpenComponent<CreateUserForm>(0);
 				builder.CloseComponent();
 			})
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
 
-		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Форма", parameters, options);
+		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Создание пользователя", parameters, options);
 
 		var result = await dialogRef.Result;
 
