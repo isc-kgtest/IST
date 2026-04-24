@@ -1,95 +1,191 @@
-﻿
+
+@using ActualLab.Fusion
+@using IST.Contracts.Features.Auth
 @using IST.Contracts.Features.Auth.Commands
 @using Microsoft.AspNetCore.Components.Forms
 
-<MudPaper Class="" Elevation="0">
-    <EditForm Model="@updateUserModel" OnValidSubmit="SubmitForm">
-        <DataAnnotationsValidator />
-        @* <MudText Typo="Typo.h5" GutterBottom="true">Профиль пользователя</MudText> *@
-        <MudTextField T="string"
-        @bind-Value="updateUserModel.Request.Name"
-        For="@(() => updateUserModel.Request.Name)"
-        Label="Логин"
-        Required="true" />
-        <MudTextField T="string"
-        @bind-Value="updateUserModel.Request.Surname"
-        For="@(() => updateUserModel.Request.Surname)"
-        Label="Фамилия"
-        Required="true"
-        Class="mt-3" />
-       @*  <MudDatePicker Label="Срок действия пароля"
-        @bind-Date="updateUserModel.Request.PasswordExpiryDate"
-        Required="true"
-        Class="mt-3" /> *@
-        <MudCheckBox @bind-Value="updateUserModel.Request.IsActive"
-        Label="Заблокировать пользователя"
-        Color="Color.Primary"
-        Class="mt-3" />
-        <MudButton ButtonType="ButtonType.Submit"
-        Variant="Variant.Filled"
-        Color="Color.Primary"
-        Class="mt-5">
-            Сохранить
-        </MudButton>
-    </EditForm>
-</MudPaper> 
+@inject IAuthCommands _authCommands
+@inject IAuthQueries _authQueries
+
+<MudPaper Elevation="0" Style="min-width: 420px;">
+    @if (_loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Class="py-8">
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Typo="Typo.caption">Загрузка данных...</MudText>
+        </MudStack>
+    }
+    else if (_notFound)
+    {
+        <MudAlert Severity="Severity.Error">Пользователь не найден.</MudAlert>
+    }
+    else
+    {
+        <EditForm Model="@_request" OnValidSubmit="SubmitForm">
+            <DataAnnotationsValidator />
+
+            <MudTextField T="string"
+                          Value="@_login"
+                          Label="Логин"
+                          ReadOnly="true" />
+
+            <MudTextField T="string"
+                          @bind-Value="_request.Surname"
+                          For="@(() => _request.Surname)"
+                          Label="Фамилия"
+                          Required="true"
+                          Class="mt-3" />
+            <MudTextField T="string"
+                          @bind-Value="_request.Name"
+                          For="@(() => _request.Name)"
+                          Label="Имя"
+                          Required="true"
+                          Class="mt-3" />
+            <MudTextField T="string"
+                          @bind-Value="_request.Patronymic"
+                          For="@(() => _request.Patronymic)"
+                          Label="Отчество"
+                          Class="mt-3" />
+            <MudTextField T="string"
+                          @bind-Value="_request.Position"
+                          For="@(() => _request.Position)"
+                          Label="Должность"
+                          Required="true"
+                          Class="mt-3" />
+            <MudTextField T="string"
+                          @bind-Value="_request.Department"
+                          For="@(() => _request.Department)"
+                          Label="Подразделение"
+                          Class="mt-3" />
+            <MudTextField T="string"
+                          @bind-Value="_request.EMail"
+                          For="@(() => _request.EMail)"
+                          Label="Email"
+                          InputType="InputType.Email"
+                          Required="true"
+                          Class="mt-3" />
+            <MudTextField T="string"
+                          @bind-Value="_request.PhoneNumber"
+                          For="@(() => _request.PhoneNumber)"
+                          Label="Телефон"
+                          InputType="InputType.Telephone"
+                          Required="true"
+                          Class="mt-3" />
+
+            <MudCheckBox @bind-Value="_request.IsActive"
+                         Color="Color.Primary"
+                         Class="mt-3">
+                <MudText Typo="Typo.caption">Учётная запись активна</MudText>
+            </MudCheckBox>
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-5" Spacing="2">
+                <MudButton OnClick="Cancel"
+                           Variant="Variant.Text"
+                           Color="Color.Default"
+                           Disabled="_isProcessing">
+                    Отмена
+                </MudButton>
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="_isProcessing">
+                    @(_isProcessing ? "Сохранение..." : "Сохранить")
+                </MudButton>
+            </MudStack>
+            <MudProgressLinear Color="Color.Primary" Indeterminate="_isProcessing" Class="mt-4" />
+        </EditForm>
+    }
+</MudPaper>
 
 @code {
 
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
-    // [CascadingParameter(Name = "UserProfile")]
-    // private UserProfile UserProfile { get; set; }
-
     [Parameter]
     public Guid UserId { get; set; }
 
-    // Экземпляр модели, к которому привязана форма.
-    private UpdateUserCommand updateUserModel;
+    private bool _loading = true;
+    private bool _notFound;
+    private bool _isProcessing;
+    private string _login = "";
+
+    private UpdateUserRequest _request { get; set; } = new();
 
     protected override async Task OnParametersSetAsync()
     {
-        // var res = await _mediatr.Send(new GetUserQuery { Id = UserId, UserProfile =  UserProfile });
+        _loading = true;
+        _notFound = false;
 
-        // // Проверяем статус ответа от сервера
-        // if (res.Status) // Если Status === true, значит, пользователь успешно найден
-        // {            
-        //     var user = res.Data;
+        try
+        {
+            var user = await _authQueries.GetUserByIdAsync(UserId);
 
-        //     updateUserModel.Id = user.Id;
-        //     updateUserModel.UserName = user.UserName;
-        //     updateUserModel.FullName = user.FullName;
-        //     updateUserModel.PasswordExpiryDate = user.PasswordExpiryDate;
-        //     updateUserModel.Disabled = user.Disabled;
+            if (user == null)
+            {
+                _notFound = true;
+                _snackbar.Add("Не удалось загрузить пользователя", Severity.Error);
+                return;
+            }
 
-        //     _snackbar.Add($"Пользователь '{updateUserModel.UserName}' успешно загружен!", Severity.Success);
+            _login = user.Login;
+            _request = new UpdateUserRequest
+            {
+                Id = user.Id,
+                Surname = user.Surname ?? "",
+                Name = user.Name ?? "",
+                Patronymic = user.Patronymic,
+                Position = user.Position ?? "",
+                Organization = user.OrganizationId,
+                Department = user.Department,
+                EMail = user.EMail ?? "",
+                PhoneNumber = user.PhoneNumber ?? "",
+                IsActive = user.IsActive
+            };
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Ошибка загрузки: {ex.Message}", Severity.Error);
+            _notFound = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
 
-        //     StateHasChanged();
-        // }
-        // else // Если Status === false, значит, произошла ошибка при получении пользователя
-        // {
-        //     _snackbar.Add($"Не удалось загрузить пользователя: {res.StatusMessage}", Severity.Error);
-        // }
-    }    
+    private void Cancel() => MudDialog?.Cancel();
 
-    /// <summary>
-    /// Этот метод вызывается при нажатии на кнопку "Сохранить".
-    /// </summary>
     private async Task SubmitForm()
     {
-        // updateUserModel.UserProfile = UserProfile;
-        // var res = await _mediatr.Send(updateUserModel);
+        if (_isProcessing)
+            return;
 
-        // if (res.Status)
-        // {
-        //     var user = res.Data;
-        //     _snackbar.Add($"Пользователь успешно сохранен: {user.UserName} !", Severity.Success);
-        //     MudDialog.Close(DialogResult.Ok(true));
-        // }
-        // else
-        // {
-        //     _snackbar.Add($"Ошибка сохранения! {res.StatusMessage}", Severity.Warning);
-        // }
+        _isProcessing = true;
+
+        try
+        {
+            var command = new UpdateUserCommand(Session.Default, _request);
+            var res = await _authCommands.UpdateUserAsync(command);
+
+            if (res.Status && res.Data != null)
+            {
+                _snackbar.Add($"Данные пользователя сохранены: {res.Data.FullName}", Severity.Success);
+                MudDialog?.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                _snackbar.Add($"Ошибка сохранения: {res.StatusMessage}", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Непредвиденная ошибка: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
     }
 }
