@@ -64,7 +64,7 @@
 			InitialValue = Model.Empty,
 			// Пересчитывать сразу на инвалидации, без дефолтной 1-секундной
 			// задержки (она создаёт ощущение "polling каждую секунду").
-			UpdateDelayer = FixedDelayer.Instant,
+			//UpdateDelayer = FixedDelayer.Instant,
 		};
 
 	protected override async Task<Model> ComputeState(CancellationToken cancellationToken)

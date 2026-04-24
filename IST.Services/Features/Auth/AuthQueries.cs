@@ -9,7 +9,7 @@ public class AuthQueries : IAuthQueries
 
     public AuthQueries(DbHub<AppDbContext> dbHub) => _dbHub = dbHub;
 
-    [ComputeMethod]
+    [ComputeMethod(MinCacheDuration = 60)]
     public virtual async Task<UserEntity?> GetUserByLoginAsync(string login, CancellationToken cancellationToken = default)
     {
         var dbContext = await _dbHub.CreateDbContext(cancellationToken);
@@ -20,7 +20,7 @@ public class AuthQueries : IAuthQueries
         return user;
     }
 
-    [ComputeMethod]
+    [ComputeMethod(MinCacheDuration = 60)]
     public virtual async Task<UserEntity?> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var dbContext = await _dbHub.CreateDbContext(cancellationToken);
@@ -29,7 +29,7 @@ public class AuthQueries : IAuthQueries
         return user;
     }
 
-    [ComputeMethod]
+    [ComputeMethod(MinCacheDuration = 60)]
     public virtual async Task<List<UserEntity>> GetAllUsersAsync(CancellationToken cancellationToken = default)
     {
         var dbContext = await _dbHub.CreateDbContext(cancellationToken);
@@ -40,7 +40,7 @@ public class AuthQueries : IAuthQueries
         return users;
     }
 
-    [ComputeMethod]
+    [ComputeMethod(MinCacheDuration = 60)]
     public virtual async Task<RoleEntity?> GetRoleByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var dbContext = await _dbHub.CreateDbContext(cancellationToken);
@@ -49,7 +49,7 @@ public class AuthQueries : IAuthQueries
         return role;
     }
 
-    [ComputeMethod]
+    [ComputeMethod(MinCacheDuration = 60)]
     public virtual async Task<List<RoleEntity>> GetAllRolesAsync(CancellationToken cancellationToken = default)
     {
         var dbContext = await _dbHub.CreateDbContext(cancellationToken);
@@ -58,7 +58,7 @@ public class AuthQueries : IAuthQueries
         return roles;
     }
 
-    [ComputeMethod]
+    [ComputeMethod(MinCacheDuration = 60)]
     public virtual async Task<UserEntity?> GetUserByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var dbContext = await _dbHub.CreateDbContext(cancellationToken);
