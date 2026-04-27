@@ -1,21 +1,24 @@
-﻿using System.ComponentModel.DataAnnotations;
+using MemoryPack;
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.Serialization;
 
 namespace IST.Shared.DTOs.Auth;
+
 [DataContract]
-public class CreateUserRoleRequest
+[MemoryPackable]
+public partial class CreateUserRoleRequest
 {
-    [DataMember, Required]
+    [DataMember, MemoryPackOrder(0), Required]
     public Guid UserId { get; set; }
 
-    [DataMember, Required]
+    [DataMember, MemoryPackOrder(1), Required]
     public Guid RoleId { get; set; }
 
     /// <summary>Дата начала действия роли. Если не указана — текущий момент.</summary>
-    [DataMember]
+    [DataMember, MemoryPackOrder(2)]
     public DateTime? StartDate { get; set; }
 
     /// <summary>Дата окончания. null = постоянная роль.</summary>
-    [DataMember]
+    [DataMember, MemoryPackOrder(3)]
     public DateTime? EndDate { get; set; }
 }

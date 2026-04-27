@@ -1,4 +1,4 @@
-﻿@using IST.UI.Models
+@using IST.UI.Models
 
 ﻿<MudTable Elevation="@Elevation" ServerData="ServerReload" Dense="true" Hover="true" @ref="table" HorizontalScrollbar="true">
     <ToolBarContent>
@@ -82,8 +82,9 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        // Если данные изменились — обновляем таблицу
-        if (!ReferenceEquals(_previousItems, Items) && Items != null)
+        if (Items == null) return;
+
+        if (_previousItems != Items)
         {
             _previousItems = Items;
             await ReloadTable();

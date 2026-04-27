@@ -1,27 +1,39 @@
-﻿@using IST.Contracts.Features.Auth.Commands
+@using ActualLab.Fusion
+@using IST.Contracts.Features.Auth
+@using IST.Contracts.Features.Auth.Commands
 @using Microsoft.AspNetCore.Components.Forms
 
-<MudPaper Style="width:250px;" Class="" Elevation="0">
-    <EditForm Model="@createRoleModel" OnValidSubmit="SubmitForm">
+@inject IAuthCommands _authCommands
+
+<MudPaper Style="width:300px;" Elevation="0">
+    <EditForm Model="@_request" OnValidSubmit="SubmitForm">
         <DataAnnotationsValidator />
-        @* <MudText Typo="Typo.h5" GutterBottom="true">Добавить новый роль</MudText> *@
         <MudTextField T="string"
-                      @bind-Value="createRoleModel.Request.Name"
-                      For="@(() => createRoleModel.Request.Name)"
+                      @bind-Value="_request.Name"
+                      For="@(() => _request.Name)"
                       Label="Название"
-                      Required="true"/>
+                      Required="true" />
         <MudTextField T="string"
-                      @bind-Value="createRoleModel.Request.Description"
-                      For="@(() => createRoleModel.Request.Description)"
+                      @bind-Value="_request.Description"
+                      For="@(() => _request.Description)"
                       Label="Описание"
                       Required="true"
                       Class="mt-3" />
-        <MudButton ButtonType="ButtonType.Submit"
-                   Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   Class="mt-5">
-                   Добавить
-        </MudButton>
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-5" Spacing="2">
+            <MudButton OnClick="Cancel"
+                       Variant="Variant.Text"
+                       Color="Color.Default"
+                       Disabled="_isProcessing">
+                Отмена
+            </MudButton>
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Disabled="_isProcessing">
+                @(_isProcessing ? "Создание..." : "Добавить")
+            </MudButton>
+        </MudStack>
+        <MudProgressLinear Color="Color.Primary" Indeterminate="_isProcessing" Class="mt-4" />
     </EditForm>
 </MudPaper>
 
@@ -30,29 +42,42 @@
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
-    // [CascadingParameter(Name = "UserProfile")]
-    // private UserProfile UserProfile { get; set; }
+    private bool _isProcessing;
 
-    // Экземпляр модели, к которому привязана форма.
-    private CreateRoleCommand createRoleModel;
+    private CreateRoleRequest _request { get; set; } = new();
 
-    /// <summary>
-    /// Этот метод вызывается при нажатии на кнопку "Создать".
-    /// </summary>
+    private void Cancel() => MudDialog?.Cancel();
+
     private async Task SubmitForm()
     {
-        //createRoleModel.UserProfile =  UserProfile;
-        // var res = await _mediatr.Send(createRoleModel);
+        if (_isProcessing)
+            return;
 
-        // if (res.Status)
-        // {
-        //     var user = res.Data;
-        //     _snackbar.Add($"Роль успешно создан: {user.Name} !", Severity.Success);
-        //     MudDialog.Close(DialogResult.Ok(true));
-        // }
-        // else
-        // {
-        //     _snackbar.Add($"Ошибка создания! {res.StatusMessage}", Severity.Warning);
-        // }
+        _isProcessing = true;
+
+        try
+        {
+            var command = new CreateRoleCommand(Session.Default, _request);
+            var res = await _authCommands.CreateRoleAsync(command);
+
+            if (res.Status && res.Data != null)
+            {
+                _snackbar.Add($"Роль успешно создана: {res.Data.Name}", Severity.Success);
+                MudDialog?.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                _snackbar.Add($"Ошибка создания: {res.StatusMessage}", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Непредвиденная ошибка: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
     }
 }

@@ -1,4 +1,4 @@
-﻿using IST.Core.Entities.Auth;
+using IST.Core.Entities.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -35,7 +35,6 @@ public class UserRolesEntityConfiguration : IEntityTypeConfiguration<UserRolesEn
         builder.Property(e => e.StartDate)
             .IsRequired();
 
-        builder.Property(e => e.EndDate)
-            .IsRequired();
+        builder.Property(e => e.EndDate);
     }
 }

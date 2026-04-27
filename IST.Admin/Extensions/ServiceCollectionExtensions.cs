@@ -1,4 +1,7 @@
 using ActualLab.Fusion;
+using ActualLab.Fusion.Authentication;
+using ActualLab.Fusion.Blazor;
+using ActualLab.Fusion.Blazor.Authentication;
 using ActualLab.Rpc;
 using IST.Admin.Auth;
 using IST.Contracts.Features.Auth;
@@ -70,18 +73,24 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration config)
     {
         var fusion = services.AddFusion();
-        var rpc = services.AddRpc();
 
         var rpcUrl = config["RpcServer:Url"] ?? "ws://localhost:5000";
 
-        rpc.AddWebSocketClient(rpcUrl);
+        // WebSocket-клиент поднимаем через Fusion-ную RPC-шину (fusion.Rpc),
+        // а не через отдельный services.AddRpc(). Иначе получаются две RPC-
+        // инфраструктуры: одна без Fusion-перехватчика, и compute-клиенты
+        // падают на fallback AutoInvalidationDelay (~1 с polling).
+        fusion.Rpc.AddWebSocketClient(rpcUrl);
 
-        // RPC-прокси к IST.Server
-        rpc.AddClient<IAuthQueries>();
-        rpc.AddClient<IAuthCommands>();
+        // Клиент IAuth нужен для правильной работы Session/аутентификации
+        fusion.AddAuthClient();
 
+        // Клиенты Queries и Commands.
         fusion.AddClient<IAuthQueries>();
         fusion.AddClient<IAuthCommands>();
+
+        // Blazor-интеграция Fusion (CircuitHub и т.п.) + AuthN на Blazor-стороне.
+        fusion.AddBlazor();
 
         // Commander для диспатча команд
         services.AddCommander();

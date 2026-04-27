@@ -1,39 +1,97 @@
-﻿@using IST.Contracts.Features.Auth.Commands
+@using ActualLab.Fusion
+@using IST.Contracts.Features.Auth
+@using IST.Contracts.Features.Auth.Commands
 @using Microsoft.AspNetCore.Components.Forms
 
-<MudPaper Class="" Elevation="0">
-    <EditForm Model="@createUserModel" OnValidSubmit="SubmitForm">
+@inject IAuthCommands _authCommands
+
+<MudPaper Elevation="0" Style="min-width: 420px;">
+    <EditForm Model="@_request" OnValidSubmit="SubmitForm">
         <DataAnnotationsValidator />
         <MudText Typo="Typo.h5" GutterBottom="true">Создание пользователя</MudText>
+
         <MudTextField T="string"
-                      @bind-Value="createUserModel.Request.Login"
-                      For="@(() => createUserModel.Request.Login)"
-                      Label="Логин"
-                      Required="true"/>
+                      @bind-Value="_request.Surname"
+                      For="@(() => _request.Surname)"
+                      Label="Фамилия"
+                      Required="true" />
         <MudTextField T="string"
-                      @bind-Value="createUserModel.Request.Name"
-                      For="@(() => createUserModel.Request.Name)"
-                      Label="Полное имя"
+                      @bind-Value="_request.Name"
+                      For="@(() => _request.Name)"
+                      Label="Имя"
                       Required="true"
                       Class="mt-3" />
         <MudTextField T="string"
-                      @bind-Value="createUserModel.Request.Password"
-                      For="@(() => createUserModel.Request.Password)"
+                      @bind-Value="_request.Patronymic"
+                      For="@(() => _request.Patronymic)"
+                      Label="Отчество"
+                      Class="mt-3" />
+        <MudTextField T="string"
+                      @bind-Value="_request.Position"
+                      For="@(() => _request.Position)"
+                      Label="Должность"
+                      Required="true"
+                      Class="mt-3" />
+        <MudTextField T="string"
+                      @bind-Value="_request.Department"
+                      For="@(() => _request.Department)"
+                      Label="Подразделение"
+                      Required="true"
+                      Class="mt-3" />
+        <MudTextField T="string"
+                      @bind-Value="_request.EMail"
+                      For="@(() => _request.EMail)"
+                      Label="Email"
+                      InputType="InputType.Email"
+                      Required="true"
+                      Class="mt-3" />
+        <MudTextField T="string"
+                      @bind-Value="_request.PhoneNumber"
+                      For="@(() => _request.PhoneNumber)"
+                      Label="Телефон"
+                      InputType="InputType.Telephone"
+                      Required="true"
+                      Class="mt-3" />
+
+        <MudDivider Class="my-4" />
+
+        <MudTextField T="string"
+                      @bind-Value="_request.Login"
+                      For="@(() => _request.Login)"
+                      Label="Логин"
+                      Required="true" />
+        <MudTextField T="string"
+                      @bind-Value="_request.Password"
+                      For="@(() => _request.Password)"
                       Label="Пароль"
                       Required="true"
-                      Class="mt-3" 
-                      InputType="@PasswordInput" Adornment="Adornment.End" AdornmentIcon="@PasswordInputIcon" OnAdornmentClick="ShowPassword" AdornmentAriaLabel="Show Password" />
-        @* <MudCheckBox @bind-Value="createUserModel.ResetPassword"
+                      Class="mt-3"
+                      InputType="@PasswordInput"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@PasswordInputIcon"
+                      OnAdornmentClick="ShowPassword"
+                      AdornmentAriaLabel="Show Password" />
+        <MudCheckBox @bind-Value="_request.IsActive"
                      Color="Color.Primary"
                      Class="mt-3">
-            <MudText Typo="Typo.caption">Требовать смену пароля при первом входе</MudText>
-        </MudCheckBox> *@
-        <MudButton ButtonType="ButtonType.Submit"
-                   Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   Class="mt-5">
-            Создать
-        </MudButton>
+            <MudText Typo="Typo.caption">Учётная запись активна</MudText>
+        </MudCheckBox>
+
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-5" Spacing="2">
+            <MudButton OnClick="Cancel"
+                       Variant="Variant.Text"
+                       Color="Color.Default"
+                       Disabled="_isProcessing">
+                Отмена
+            </MudButton>
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Disabled="_isProcessing">
+                @(_isProcessing ? "Создание..." : "Создать")
+            </MudButton>
+        </MudStack>
+        <MudProgressLinear Color="Color.Primary" Indeterminate="_isProcessing" Class="mt-4" />
     </EditForm>
 </MudPaper>
 
@@ -42,49 +100,61 @@
     [CascadingParameter]
     private IMudDialogInstance MudDialog { get; set; }
 
-    // [CascadingParameter(Name = "UserProfile")]
-    // private UserProfile UserProfile { get; set; }
+    private bool _isProcessing;
+    private bool _isShow;
+    private InputType PasswordInput = InputType.Password;
+    private string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
 
-    bool isShow;
-    InputType PasswordInput = InputType.Password;
-    string PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
+    private CreateUserRequest _request { get; set; } = new() { IsActive = true };
 
     void ShowPassword()
     {
-        @if (isShow)
+        if (_isShow)
         {
-            isShow = false;
+            _isShow = false;
             PasswordInputIcon = Icons.Material.Filled.VisibilityOff;
             PasswordInput = InputType.Password;
         }
         else
         {
-            isShow = true;
+            _isShow = true;
             PasswordInputIcon = Icons.Material.Filled.Visibility;
             PasswordInput = InputType.Text;
         }
     }
 
-    // Экземпляр модели, к которому привязана форма.
-    private CreateUserCommand createUserModel;
+    private void Cancel() => MudDialog?.Cancel();
 
-    /// <summary>
-    /// Этот метод вызывается при нажатии на кнопку "Создать".
-    /// </summary>
     private async Task SubmitForm()
     {
-        // createUserModel.UserProfile =  UserProfile;
-        // var res = await _mediatr.Send(createUserModel);
+        if (_isProcessing)
+            return;
 
-        // if (res.Status)
-        // {
-        //     var userName = res.Data;
-        //     _snackbar.Add($"Пользователь успешно создан: {userName} !", Severity.Success);
-        //     MudDialog.Close(DialogResult.Ok(true));
-        // }
-        // else
-        // {
-        //     _snackbar.Add($"Ошибка создания! {res.StatusMessage}", Severity.Warning);
-        // }
+        _isProcessing = true;
+
+        try
+        {
+            var command = new CreateUserCommand(Session.Default, _request);
+            var res = await _authCommands.CreateUserAsync(command);
+
+            if (res.Status && res.Data != null)
+            {
+                _snackbar.Add($"Пользователь успешно создан: {res.Data.Login}", Severity.Success);
+                MudDialog?.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                _snackbar.Add($"Ошибка создания: {res.StatusMessage}", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Непредвиденная ошибка: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
     }
 }

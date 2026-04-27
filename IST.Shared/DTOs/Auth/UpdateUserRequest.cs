@@ -1,38 +1,40 @@
-﻿using System.ComponentModel.DataAnnotations;
+using MemoryPack;
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.Serialization;
 
 namespace IST.Shared.DTOs.Auth;
 
 [DataContract]
-public class UpdateUserRequest
+[MemoryPackable]
+public partial class UpdateUserRequest
 {
-    [DataMember, Required]
+    [DataMember, MemoryPackOrder(0), Required]
     public Guid Id { get; set; }
 
-    [DataMember, Required(ErrorMessage = "Фамилия обязательна")]
+    [DataMember, MemoryPackOrder(1), Required(ErrorMessage = "Фамилия обязательна")]
     public string Surname { get; set; } = "";
 
-    [DataMember, Required(ErrorMessage = "Имя обязательно")]
+    [DataMember, MemoryPackOrder(2), Required(ErrorMessage = "Имя обязательно")]
     public string Name { get; set; } = "";
 
-    [DataMember]
+    [DataMember, MemoryPackOrder(3)]
     public string? Patronymic { get; set; }
 
-    [DataMember, Required]
+    [DataMember, MemoryPackOrder(4), Required]
     public string Position { get; set; } = "";
 
-    [DataMember]
+    [DataMember, MemoryPackOrder(5)]
     public Guid Organization { get; set; }
 
-    [DataMember]
+    [DataMember, MemoryPackOrder(6)]
     public string? Department { get; set; }
 
-    [DataMember, Required, EmailAddress]
+    [DataMember, MemoryPackOrder(7), Required, EmailAddress]
     public string EMail { get; set; } = "";
 
-    [DataMember, Required]
+    [DataMember, MemoryPackOrder(8), Required]
     public string PhoneNumber { get; set; } = "";
 
-    [DataMember]
+    [DataMember, MemoryPackOrder(9)]
     public bool IsActive { get; set; }
 }
