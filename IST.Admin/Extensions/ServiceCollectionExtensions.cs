@@ -103,6 +103,9 @@ public static class ServiceCollectionExtensions
         // Commander для диспатча команд
         // Регистрация командных интерфейсов на клиенте
         var commander = services.AddCommander();
+        commander.AddHandlers<IAuthCommands>();
+        commander.AddHandlers<INsiCommands>();
+        commander.AddHandlers<IDictionaryCommands>();
 
         return services;
     }
