@@ -1,0 +1,79 @@
+@page "/nsi"
+@using IST.Admin.Features.Dictionaries.Components
+@using IST.Shared.DTOs.Dictionaries
+
+@attribute [Authorize]
+
+@inherits ActualLab.Fusion.Blazor.ComputedStateComponent<IST.Admin.Features.Nsi.Pages.NsiPage.Model>
+
+<PageTitle>Нормативно-справочная информация (НСИ)</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">НСИ</MudText>
+<MudText Typo="Typo.body1" Class="mb-4">Управление системными справочниками (Нормативно-справочная информация)</MudText>
+
+@if (_selectedDictionary == null)
+{
+    @* Список НСИ справочников *@
+    <MudGrid>
+        @if (State.ValueOrDefault?.Dictionaries.Any() == true)
+        {
+            @foreach (var dict in State.ValueOrDefault.Dictionaries)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3">
+                    <MudCard Elevation="2" Class="h-100 d-flex flex-column">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">@dict.Name</MudText>
+                            </CardHeaderContent>
+                            <CardHeaderActions>
+                                <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Default" OnClick="@(() => OpenDictionary(dict))" />
+                            </CardHeaderActions>
+                        </MudCardHeader>
+                        <MudCardContent Class="flex-grow-1">
+                            <MudText Typo="Typo.body2">@dict.Description</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Полей: @dict.FieldCount</MudText>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => OpenDictionary(dict))" FullWidth="true">
+                                Открыть
+                            </MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        }
+        else if (_processing)
+        {
+            <MudItem xs="12">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            </MudItem>
+        }
+        else
+        {
+            <MudItem xs="12">
+                <MudAlert Severity="Severity.Info">Системные справочники не найдены. Пожалуйста, убедитесь, что сидер отработал успешно.</MudAlert>
+            </MudItem>
+        }
+    </MudGrid>
+}
+else
+{
+    @* Детальный просмотр записей выбранного НСИ *@
+    <div class="d-flex align-center mb-4">
+        <MudIconButton Icon="@Icons.Material.Rounded.ArrowBack" OnClick="@(() => _selectedDictionary = null)" Class="mr-2" />
+        <MudText Typo="Typo.h5">@_selectedDictionary.Name</MudText>
+    </div>
+
+    @if (_loadingDetail)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-4" />
+    }
+    
+    <MudPaper Elevation="1" Class="pa-4">
+        <DictionaryRecordsGrid DictionaryId="@_selectedDictionary.Id"
+                               Fields="@(_detail?.Fields ?? new())"
+                               Records="@(_detail?.Records ?? new())"
+                               Loading="_loadingDetail"
+                               OnRefresh="LoadDetail" />
+    </MudPaper>
+}
