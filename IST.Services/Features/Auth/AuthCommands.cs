@@ -5,9 +5,6 @@ using IST.Contracts.Features.Auth.Commands;
 using IST.Core.Entities.Auth;
 using IST.Infrastructure.Security;
 using MapsterMapper;
-using Microsoft.EntityFrameworkCore;
-using IST.Shared.DTOs.Auth;
-using IST.Infrastructure.Data;
 
 namespace IST.Services.Features.Auth;
 
@@ -885,7 +882,5 @@ public class AuthCommands : IAuthCommands
             StatusCode = ResponseStatusCode.Ok,
             Data = userRole!.Role?.Name ?? ""
         };
-
     }
-
 }

@@ -1,11 +1,5 @@
 using IST.Contracts.Features.Auth;
-using IST.Core.Entities.Auth;
-using IST.Shared.DTOs.Auth;
 using MapsterMapper;
-using Microsoft.EntityFrameworkCore;
-using ActualLab.Fusion;
-using ActualLab.Fusion.EntityFramework;
-using IST.Infrastructure.Data;
 
 namespace IST.Services.Features.Auth;
 

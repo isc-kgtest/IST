@@ -1,5 +1,3 @@
 ﻿namespace IST.Shared.DTOs;
 
-public interface IMappingMarker
-{
-}
+public interface IMappingMarker{}
