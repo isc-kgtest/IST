@@ -1,7 +1,6 @@
 using IST.Admin.Auth;
 using IST.Admin.Extensions;
 using MudBlazor.Services;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Add services to the container.

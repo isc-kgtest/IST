@@ -1,10 +1,16 @@
 using MemoryPack;
+using Mapster;
+using IST.Core.Entities.Auth;
 
 namespace IST.Shared.DTOs.Auth;
 
 [MemoryPackable]
-public partial class RoleDto
+public partial class RoleDto : IRegister
 {
+    public void Register(TypeAdapterConfig config)
+    {
+        config.NewConfig<RoleEntity, RoleDto>();
+    }
     [MemoryPackOrder(0)]
     public Guid Id { get; set; }
     

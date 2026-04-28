@@ -10,6 +10,9 @@ using ActualLab.Rpc.Server;
 using IST.Contracts.Features.Auth;
 using IST.Infrastructure.Data;
 using IST.Services.Features.Auth;
+using Mapster;
+using MapsterMapper;
+using IST.Shared.DTOs;
 
 namespace IST.Server.Extensions;
 
@@ -90,6 +93,17 @@ public static class ServiceCollectionExtensions
         fusion.AddService<IAuthCommands, AuthCommands>(RpcServiceMode.Server);
         commander.AddHandlers<AuthCommands>();
 
+        services.AddMapster();
+
+        return services;
+    }
+
+    public static IServiceCollection AddMapster(this IServiceCollection services)
+    {
+        var config = TypeAdapterConfig.GlobalSettings;
+        config.Scan(typeof(IMappingMarker).Assembly);
+        services.AddSingleton(config);
+        services.AddSingleton<IMapper, ServiceMapper>();
         return services;
     }
 }

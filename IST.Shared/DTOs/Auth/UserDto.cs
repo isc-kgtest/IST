@@ -1,11 +1,17 @@
 using MemoryPack;
 using System.ComponentModel.DataAnnotations;
+using Mapster;
+using IST.Core.Entities.Auth;
 
 namespace IST.Shared.DTOs.Auth;
 
 [MemoryPackable]
-public partial class UserDto
+public partial class UserDto : IRegister
 {
+    public void Register(TypeAdapterConfig config)
+    {
+        config.NewConfig<UserEntity, UserDto>();
+    }
     [MemoryPackOrder(0)]
     public Guid Id { get; set; }
     

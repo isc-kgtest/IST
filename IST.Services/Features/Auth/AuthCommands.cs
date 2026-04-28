@@ -4,6 +4,10 @@ using IST.Contracts.Features.Auth;
 using IST.Contracts.Features.Auth.Commands;
 using IST.Core.Entities.Auth;
 using IST.Infrastructure.Security;
+using MapsterMapper;
+using Microsoft.EntityFrameworkCore;
+using IST.Shared.DTOs.Auth;
+using IST.Infrastructure.Data;
 
 namespace IST.Services.Features.Auth;
 
@@ -12,12 +16,14 @@ public class AuthCommands : IAuthCommands
     private readonly DbHub<AppDbContext> _dbHub;
     private readonly IAuthQueries _queries;
     private readonly IAuth _auth;
+    private readonly IMapper _mapper;
 
-    public AuthCommands(DbHub<AppDbContext> dbHub, IAuthQueries queries, IAuth auth)
+    public AuthCommands(DbHub<AppDbContext> dbHub, IAuthQueries queries, IAuth auth, IMapper mapper)
     {
         _dbHub = dbHub;
         _queries = queries;
         _auth = auth;
+        _mapper = mapper;
     }
     // Auth
     [CommandHandler]
@@ -213,12 +219,7 @@ public class AuthCommands : IAuthCommands
         {
             Status = true,
             StatusMessage = "Пользователь успешно создан",
-            Data = new UserResponseDTO
-            {
-                Id = userEntity.Id,
-                Login = userEntity.Login,
-                FullName = userEntity.FullName
-            }
+            Data = _mapper.Map<UserResponseDTO>(userEntity)
         };
     }
 
@@ -292,12 +293,7 @@ public class AuthCommands : IAuthCommands
         {
             Status = true,
             StatusMessage = "Данные пользователя успешно обновлены",
-            Data = new UserResponseDTO
-            {
-                Id = user.Id,
-                Login = user.Login,
-                FullName = user.FullName
-            }
+            Data = _mapper.Map<UserResponseDTO>(user)
         };
     }
 
@@ -583,12 +579,7 @@ public class AuthCommands : IAuthCommands
             Status = true,
             StatusMessage = "Роль успешно создана.",
             StatusCode = ResponseStatusCode.Ok,
-            Data = new RoleResponseDTO
-            {
-                Id = role.Id,
-                Name = role.Name,
-                Description = role.Description
-            }
+            Data = _mapper.Map<RoleResponseDTO>(role)
         };
     }
 
@@ -651,12 +642,7 @@ public class AuthCommands : IAuthCommands
             Status = true,
             StatusMessage = "Роль успешно обновлена.",
             StatusCode = ResponseStatusCode.Ok,
-            Data = new RoleResponseDTO
-            {
-                Id = role.Id,
-                Name = role.Name,
-                Description = role.Description
-            }
+            Data = _mapper.Map<RoleResponseDTO>(role)
         };
 
     }
@@ -795,16 +781,7 @@ public class AuthCommands : IAuthCommands
             Status = true,
             StatusMessage = "Роль успешно назначена.",
             StatusCode = ResponseStatusCode.Ok,
-            Data = new UserRoleResponseDTO
-            {
-                Id = userRole.Id,
-                UserId = userRole.UserId,
-                UserFullName = user?.FullName ?? "",
-                RoleId = userRole.RoleId,
-                RoleName = role!.Name,
-                StartDate = userRole.StartDate,
-                EndDate = userRole.EndDate
-            }
+            Data = _mapper.Map<UserRoleResponseDTO>(userRole)
         };
 
     }
@@ -859,16 +836,7 @@ public class AuthCommands : IAuthCommands
             Status = true,
             StatusMessage = "Период действия роли обновлён.",
             StatusCode = ResponseStatusCode.Ok,
-            Data = new UserRoleResponseDTO
-            {
-                Id = userRole.Id,
-                UserId = userRole.UserId,
-                UserFullName = userRole.User?.FullName ?? "",
-                RoleId = userRole.RoleId,
-                RoleName = userRole.Role?.Name ?? "",
-                StartDate = userRole.StartDate,
-                EndDate = userRole.EndDate
-            }
+            Data = _mapper.Map<UserRoleResponseDTO>(userRole)
         };
 
     }
