@@ -8,6 +8,8 @@ using ActualLab.Fusion.EntityFramework.Npgsql;
 using ActualLab.Rpc;
 using ActualLab.Rpc.Server;
 using IST.Contracts.Features.Auth;
+using IST.Contracts.Features.Dictionaries;
+using IST.Contracts.Features.Nsi;
 using IST.Infrastructure.Data;
 using IST.Services.Features.Auth;
 using Mapster;
@@ -92,6 +94,15 @@ public static class ServiceCollectionExtensions
         // Commands
         fusion.AddService<IAuthCommands, AuthCommands>(RpcServiceMode.Server);
         commander.AddHandlers<AuthCommands>();
+
+        // Note: Dictionaries and Nsi services would need to be added here too once implemented in IST.Services
+        // fusion.AddService<INsiQueries, NsiQueries>(RpcServiceMode.Server);
+        // fusion.AddService<INsiCommands, NsiCommands>(RpcServiceMode.Server);
+        // commander.AddHandlers<NsiCommands>();
+
+        // fusion.AddService<IDictionaryQueries, DictionaryQueries>(RpcServiceMode.Server);
+        // fusion.AddService<IDictionaryCommands, DictionaryCommands>(RpcServiceMode.Server);
+        // commander.AddHandlers<DictionaryCommands>();
 
         services.AddMapster();
 
