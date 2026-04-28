@@ -16,99 +16,137 @@
 
 <PageTitle>Панель управления доступом</PageTitle>
 
-<MudAlert Elevation="0" Dense="true" Class="my-2">
+<MudAlert Elevation="0" Dense="true" Class="mb-4" Severity="Severity.Info">
 	Панель управления доступом
 </MudAlert>
 
 <MudTabs @bind-DisableRipple="_processing" Outlined="true" Rounded="true" ApplyEffectsToContainer="true">
-	<MudTabPanel Text="Пользователи">
-        <MudTable Items="@(State.ValueOrDefault?.Users ?? new())" Hover="true" Striped="true" Dense="true">
-            <ToolBarContent>
-                <MudText Typo="Typo.h6">Пользователи</MudText>
-                <MudSpacer />
-                <MudTooltip Placement="Placement.Top" Text="Создать нового пользователя">
-                    <MudFab Size="Size.Small" Class="ml-2" Color="Color.Success" StartIcon="@Icons.Material.Rounded.GroupAdd" OnClick="ShowCreateUserForm" />
-                </MudTooltip>
-                <MudTooltip Placement="Placement.Top" Text="Обновить">
-                    <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
-                </MudTooltip>
-            </ToolBarContent>
-            <HeaderContent>
-                <MudTh>Логин</MudTh>
-                <MudTh>Полное имя</MudTh>
-                <MudTh>Email</MudTh>
-                <MudTh>Дата создания</MudTh>
-                <MudTh>Срок действия пароля</MudTh>
-                <MudTh>Активен</MudTh>
-                <MudTh>Действия</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="Логин">@context.Login</MudTd>
-                <MudTd DataLabel="Полное имя">@context.FullName</MudTd>
-                <MudTd DataLabel="Email">@context.EMail</MudTd>
-                <MudTd DataLabel="Дата создания">@context.CreatedAt.ToString("dd.MM.yyyy")</MudTd>
-                <MudTd DataLabel="Срок действия пароля">@context.PasswordExpiryDate.ToString("dd.MM.yyyy")</MudTd>
-                <MudTd DataLabel="Активен">@(context.IsActive ? "Да" : "Нет")</MudTd>
-                <MudTd DataLabel="Действия">
-                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
-                        <MudMenuItem OnClick="() => ShowUserProfile(context.Id)">Профиль</MudMenuItem>
-                        <MudMenuItem OnClick="() => ShowEditUserRoleForm(context.Id)">Роли</MudMenuItem>
-                        <MudMenuItem OnClick="() => ShowResetPasswordForm(context.Login)">Сброс пароля</MudMenuItem>
-                        <MudMenuItem OnClick="() => ShowUserDeleteDialog(context.Id, context.FullName)">Удалить</MudMenuItem>
-                    </MudMenu>
-                </MudTd>
-            </RowTemplate>
-            <PagerContent>
-                <MudTablePager />
-            </PagerContent>
-        </MudTable>
+	
+	@* ========================== ВКЛАДКА ПОЛЬЗОВАТЕЛИ ========================== *@
+	<MudTabPanel Text="Пользователи" Icon="@Icons.Material.Rounded.People">
+		<MudDataGrid T="UserDto"
+					 Items="@(State.ValueOrDefault?.Users ?? new())"
+					 Hover="true"
+					 Striped="true"
+					 Dense="true"
+					 Filterable="true"
+					 SortMode="SortMode.Multiple"
+					 QuickFilter="@_userFilter"
+					 Loading="@_processing">
+			<ToolBarContent>
+				<MudText Typo="Typo.h6">Пользователи</MudText>
+				<MudSpacer />
+				<MudTextField @bind-Value="_userSearchString"
+							  Placeholder="Поиск пользователя..."
+							  Adornment="Adornment.Start"
+							  AdornmentIcon="@Icons.Material.Filled.Search"
+							  IconSize="Size.Medium"
+							  Class="mt-0 mr-4"
+							  Clearable="true" />
+				
+				<MudTooltip Placement="Placement.Top" Text="Создать нового пользователя">
+					<MudFab Size="Size.Small" Color="Color.Success" StartIcon="@Icons.Material.Rounded.GroupAdd" OnClick="ShowCreateUserForm" />
+				</MudTooltip>
+				<MudTooltip Placement="Placement.Top" Text="Обновить данные">
+					<MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
+				</MudTooltip>
+			</ToolBarContent>
+			<Columns>
+				<PropertyColumn Property="x => x.Login" Title="Логин" />
+				<PropertyColumn Property="x => x.FullName" Title="Полное имя" />
+				<PropertyColumn Property="x => x.EMail" Title="Email" />
+				<PropertyColumn Property="x => x.CreatedAt" Title="Дата создания" Format="dd.MM.yyyy" />
+				<PropertyColumn Property="x => x.PasswordExpiryDate" Title="Срок пароля" Format="dd.MM.yyyy" />
+				
+				<TemplateColumn Title="Активен" SortBy="x => x.IsActive">
+					<CellTemplate>
+						<MudChip T="string" Color="@(context.Item.IsActive ? Color.Success : Color.Error)" Size="Size.Small" Variant="Variant.Outlined">
+							@(context.Item.IsActive ? "Да" : "Нет")
+						</MudChip>
+					</CellTemplate>
+				</TemplateColumn>
+				
+				<TemplateColumn Title="Действия" Filterable="false" Sortable="false">
+					<CellTemplate>
+						<MudMenu Icon="@Icons.Material.Filled.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true" Size="Size.Small">
+							<MudMenuItem Icon="@Icons.Material.Rounded.Person" OnClick="() => ShowUserProfile(context.Item.Id)">Профиль</MudMenuItem>
+							<MudMenuItem Icon="@Icons.Material.Rounded.Security" OnClick="() => ShowEditUserRoleForm(context.Item.Id)">Роли</MudMenuItem>
+							<MudMenuItem Icon="@Icons.Material.Rounded.LockReset" OnClick="() => ShowResetPasswordForm(context.Item.Login)">Сброс пароля</MudMenuItem>
+							<MudDivider />
+							<MudMenuItem Icon="@Icons.Material.Rounded.Delete" IconColor="Color.Error" OnClick="() => ShowUserDeleteDialog(context.Item.Id, context.Item.FullName)">Удалить</MudMenuItem>
+						</MudMenu>
+					</CellTemplate>
+				</TemplateColumn>
+			</Columns>
+			<PagerContent>
+				<MudDataGridPager T="UserDto" PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+			</PagerContent>
+		</MudDataGrid>
 	</MudTabPanel>
-	<MudTabPanel Text="Роли">
-        <MudTable Items="@(State.ValueOrDefault?.Roles ?? new())" Hover="true" Striped="true" Dense="true">
-            <ToolBarContent>
-                <MudText Typo="Typo.h6">Роли</MudText>
-                <MudSpacer />
-                <MudTooltip Placement="Placement.Top" Text="Добавить новую роль">
-                    <MudFab Size="Size.Small" Class="ml-2" Color="Color.Success" StartIcon="@Icons.Material.Rounded.AddModerator" OnClick="ShowCreateRoleForm" />
-                </MudTooltip>
-                <MudTooltip Placement="Placement.Top" Text="Обновить">
-                    <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
-                </MudTooltip>
-            </ToolBarContent>
-            <HeaderContent>
-                <MudTh>Название</MudTh>
-                <MudTh>Описание</MudTh>
-                <MudTh>Дата создания</MudTh>
-                <MudTh>Действия</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="Название">@context.Name</MudTd>
-                <MudTd DataLabel="Описание">@context.Description</MudTd>
-                <MudTd DataLabel="Дата создания">@context.CreatedAt.ToString("dd.MM.yyyy HH:mm")</MudTd>
-                <MudTd DataLabel="Действия">
-                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
-                        <MudMenuItem OnClick="() => ShowUpdateRoleForm(context.Id)">Изменить</MudMenuItem>
-                        <MudMenuItem OnClick="() => ShowRoleDeleteDialog(context.Id, context.Name)">Удалить</MudMenuItem>
-                    </MudMenu>
-                </MudTd>
-            </RowTemplate>
-            <PagerContent>
-                <MudTablePager />
-            </PagerContent>
-        </MudTable>
+
+	@* ========================== ВКЛАДКА РОЛИ ========================== *@
+	<MudTabPanel Text="Роли" Icon="@Icons.Material.Rounded.AdminPanelSettings">
+		<MudDataGrid T="RoleDto"
+					 Items="@(State.ValueOrDefault?.Roles ?? new())"
+					 Hover="true"
+					 Striped="true"
+					 Dense="true"
+					 Filterable="true"
+					 SortMode="SortMode.Multiple"
+					 Loading="@_processing">
+			<ToolBarContent>
+				<MudText Typo="Typo.h6">Роли системы</MudText>
+				<MudSpacer />
+				<MudTooltip Placement="Placement.Top" Text="Добавить новую роль">
+					<MudFab Size="Size.Small" Color="Color.Success" StartIcon="@Icons.Material.Rounded.AddModerator" OnClick="ShowCreateRoleForm" />
+				</MudTooltip>
+				<MudTooltip Placement="Placement.Top" Text="Обновить данные">
+					<MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
+				</MudTooltip>
+			</ToolBarContent>
+			<Columns>
+				<PropertyColumn Property="x => x.Name" Title="Название" />
+				<PropertyColumn Property="x => x.Description" Title="Описание" />
+				<PropertyColumn Property="x => x.CreatedAt" Title="Дата создания" Format="dd.MM.yyyy HH:mm" />
+				
+				<TemplateColumn Title="Действия" Filterable="false" Sortable="false">
+					<CellTemplate>
+						<MudMenu Icon="@Icons.Material.Filled.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+							<MudMenuItem Icon="@Icons.Material.Rounded.Edit" OnClick="() => ShowUpdateRoleForm(context.Item.Id)">Изменить</MudMenuItem>
+							<MudDivider />
+							<MudMenuItem Icon="@Icons.Material.Rounded.Delete" IconColor="Color.Error" OnClick="() => ShowRoleDeleteDialog(context.Item.Id, context.Item.Name)">Удалить</MudMenuItem>
+						</MudMenu>
+					</CellTemplate>
+				</TemplateColumn>
+			</Columns>
+			<PagerContent>
+				<MudDataGridPager T="RoleDto" PageSizeOptions="new int[] { 10, 25, 50 }" />
+			</PagerContent>
+		</MudDataGrid>
 	</MudTabPanel>
 </MudTabs>
 
 @code {
 
-	public sealed record Model(
-		List<UserDto> Users,
-		List<RoleDto> Roles)
+	public sealed record Model(List<UserDto> Users, List<RoleDto> Roles)
 	{
 		public static readonly Model Empty = new(new(), new());
 	}
 
 	private bool _processing;
+	private string _userSearchString = string.Empty;
+
+	private Func<UserDto, bool> _userFilter => x =>
+	{
+		if (string.IsNullOrWhiteSpace(_userSearchString))
+			return true;
+			
+		if (x.Login.Contains(_userSearchString, StringComparison.OrdinalIgnoreCase)) return true;
+		if (x.FullName.Contains(_userSearchString, StringComparison.OrdinalIgnoreCase)) return true;
+		if (x.EMail.Contains(_userSearchString, StringComparison.OrdinalIgnoreCase)) return true;
+		
+		return false;
+	};
 
 	protected override ComputedState<Model>.Options GetStateOptions()
 		=> new()
@@ -119,96 +157,57 @@
 
 	protected override async Task<Model> ComputeState(CancellationToken cancellationToken)
 	{
-		var users = await _authQueries.GetAllUsersAsync(cancellationToken);
-		var roles = await _authQueries.GetAllRolesAsync(cancellationToken);
-		
-		var activeUsers = users.Where(u => !u.IsDeleted).OrderBy(u => u.CreatedAt).ToList();
-		var activeRoles = roles.Where(r => !r.IsDeleted).OrderBy(r => r.CreatedAt).ToList();
-		
-		return new Model(activeUsers, activeRoles);
+		_processing = true;
+		try
+		{
+			var users = await _authQueries.GetAllUsersAsync(cancellationToken);
+			var roles = await _authQueries.GetAllRolesAsync(cancellationToken);
+			
+			var activeUsers = users.Where(u => !u.IsDeleted).OrderByDescending(u => u.CreatedAt).ToList();
+			var activeRoles = roles.Where(r => !r.IsDeleted).OrderByDescending(r => r.CreatedAt).ToList();
+			
+			return new Model(activeUsers, activeRoles);
+		}
+		finally
+		{
+			_processing = false;
+		}
 	}
 
 	private async Task RefreshAsync() => await State.Recompute();
 
+	#region Dialogs - Users
 
-
-	private async Task ShowCreateRoleForm()
+	private async Task ShowCreateUserForm()
 	{
 		var parameters = new DialogParameters
 		{
 			["ChildContent"] = (RenderFragment)(builder =>
 			{
-				builder.OpenComponent<CreateRoleForm>(0);
+				builder.OpenComponent<CreateUserForm>(0);
 				builder.CloseComponent();
 			})
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Добавить новый роль", parameters, options);
+		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Создание пользователя", parameters, options);
 		await dialogRef.Result;
 	}
 
-	private async Task ShowRoleDeleteDialog(Guid id, string roleName)
-	{
-		IDialogReference dialogRef = default!;
-		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
-		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
-
-		var parameters = new DialogParameters
-		{
-			["ButtonOk"] = (RenderFragment)(builder =>
-			{
-				builder.OpenComponent<MudButton>(0);
-				builder.AddAttribute(1, "Color", Color.Secondary);
-				builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, ConfirmDialog));
-				builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Удалить")));
-				builder.CloseComponent();
-			}),
-			["ButtonCancel"] = (RenderFragment)(builder =>
-			{
-				builder.OpenComponent<MudButton>(0);
-				builder.AddAttribute(1, "Color", Color.Primary);
-				builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, CancelDialog));
-				builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Отмена")));
-				builder.CloseComponent();
-			}),
-		};
-
-		var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Medium };
-		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить роль \"{roleName}\"?", parameters, options);
-
-		var result = await dialogRef.Result;
-		if (result.Canceled)
-			return;
-
-		try
-		{
-			var res = await _authCommands.DeleteRoleAsync(new DeleteRoleCommand(Session.Default, id));
-			if (res.Status)
-				_snackbar.Add($"Роль удалена: {res.Data}", Severity.Success);
-			else
-				_snackbar.Add($"Не удалось удалить роль: {res.StatusMessage}", Severity.Warning);
-		}
-		catch (Exception ex)
-		{
-			_snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
-		}
-	}
-
-	private async Task ShowUpdateRoleForm(Guid roleId)
+	private async Task ShowUserProfile(Guid userId)
 	{
 		var parameters = new DialogParameters
 		{
 			["ChildContent"] = (RenderFragment)(builder =>
 			{
-				builder.OpenComponent<UpdateRoleForm>(0);
-				builder.AddAttribute(1, "RoleId", roleId);
+				builder.OpenComponent<UserProfileForm>(0);
+				builder.AddAttribute(1, "UserId", userId);
 				builder.CloseComponent();
 			})
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Роль", parameters, options);
+		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Профиль", parameters, options);
 		await dialogRef.Result;
 	}
 
@@ -257,22 +256,23 @@
 			["ButtonOk"] = (RenderFragment)(builder =>
 			{
 				builder.OpenComponent<MudButton>(0);
-				builder.AddAttribute(1, "Color", Color.Secondary);
-				builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, ConfirmDialog));
-				builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Удалить")));
+				builder.AddAttribute(1, "Color", Color.Error);
+				builder.AddAttribute(2, "Variant", Variant.Filled);
+				builder.AddAttribute(3, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, ConfirmDialog));
+				builder.AddAttribute(4, "ChildContent", (RenderFragment)(b => b.AddContent(5, "Удалить")));
 				builder.CloseComponent();
 			}),
 			["ButtonCancel"] = (RenderFragment)(builder =>
 			{
 				builder.OpenComponent<MudButton>(0);
-				builder.AddAttribute(1, "Color", Color.Primary);
+				builder.AddAttribute(1, "Color", Color.Default);
 				builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, CancelDialog));
 				builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Отмена")));
 				builder.CloseComponent();
 			}),
 		};
 
-		var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Medium };
+		var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Small };
 		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить пользователя \"{userFullName}\"?", parameters, options);
 
 		var result = await dialogRef.Result;
@@ -283,9 +283,14 @@
 		{
 			var res = await _authCommands.DeleteUserAsync(new DeleteUserCommand(Session.Default, id));
 			if (res.Status)
+			{
 				_snackbar.Add($"Пользователь удалён: {res.Data}", Severity.Success);
+				await RefreshAsync();
+			}
 			else
+			{
 				_snackbar.Add($"Не удалось удалить пользователя: {res.StatusMessage}", Severity.Warning);
+			}
 		}
 		catch (Exception ex)
 		{
@@ -293,36 +298,96 @@
 		}
 	}
 
-	private async Task ShowUserProfile(Guid userId)
+	#endregion
+
+	#region Dialogs - Roles
+
+	private async Task ShowCreateRoleForm()
 	{
 		var parameters = new DialogParameters
 		{
 			["ChildContent"] = (RenderFragment)(builder =>
 			{
-				builder.OpenComponent<UserProfileForm>(0);
-				builder.AddAttribute(1, "UserId", userId);
+				builder.OpenComponent<CreateRoleForm>(0);
 				builder.CloseComponent();
 			})
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Профиль", parameters, options);
+		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Добавить новую роль", parameters, options);
 		await dialogRef.Result;
 	}
 
-	private async Task ShowCreateUserForm()
+	private async Task ShowUpdateRoleForm(Guid roleId)
 	{
 		var parameters = new DialogParameters
 		{
 			["ChildContent"] = (RenderFragment)(builder =>
 			{
-				builder.OpenComponent<CreateUserForm>(0);
+				builder.OpenComponent<UpdateRoleForm>(0);
+				builder.AddAttribute(1, "RoleId", roleId);
 				builder.CloseComponent();
 			})
 		};
 
 		var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
-		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Создание пользователя", parameters, options);
+		var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Редактирование роли", parameters, options);
 		await dialogRef.Result;
 	}
+
+	private async Task ShowRoleDeleteDialog(Guid id, string roleName)
+	{
+		IDialogReference dialogRef = default!;
+		void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+		void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+		var parameters = new DialogParameters
+		{
+			["ButtonOk"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<MudButton>(0);
+				builder.AddAttribute(1, "Color", Color.Error);
+				builder.AddAttribute(2, "Variant", Variant.Filled);
+				builder.AddAttribute(3, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, ConfirmDialog));
+				builder.AddAttribute(4, "ChildContent", (RenderFragment)(b => b.AddContent(5, "Удалить")));
+				builder.CloseComponent();
+			}),
+			["ButtonCancel"] = (RenderFragment)(builder =>
+			{
+				builder.OpenComponent<MudButton>(0);
+				builder.AddAttribute(1, "Color", Color.Default);
+				builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, CancelDialog));
+				builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Отмена")));
+				builder.CloseComponent();
+			}),
+		};
+
+		var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Small };
+		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить роль \"{roleName}\"?", parameters, options);
+
+		var result = await dialogRef.Result;
+		if (result.Canceled)
+			return;
+
+		try
+		{
+			var res = await _authCommands.DeleteRoleAsync(new DeleteRoleCommand(Session.Default, id));
+			if (res.Status)
+			{
+				_snackbar.Add($"Роль удалена: {res.Data}", Severity.Success);
+				await RefreshAsync();
+			}
+			else
+			{
+				_snackbar.Add($"Не удалось удалить роль: {res.StatusMessage}", Severity.Warning);
+			}
+		}
+		catch (Exception ex)
+		{
+			_snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
+		}
+	}
+
+	#endregion
+
 }
