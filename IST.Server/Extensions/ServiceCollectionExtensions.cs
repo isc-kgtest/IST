@@ -12,6 +12,8 @@ using IST.Contracts.Features.Dictionaries;
 using IST.Contracts.Features.Nsi;
 using IST.Infrastructure.Data;
 using IST.Services.Features.Auth;
+using IST.Services.Features.Dictionaries;
+using IST.Services.Features.Nsi;
 using Mapster;
 using MapsterMapper;
 using IST.Shared.DTOs;
@@ -34,20 +36,11 @@ public static class ServiceCollectionExtensions
         {
             db.AddOperations(operations =>
             {
-                // ConfigureOperationLogReader — fallback-читатель для _Operations.
-                // NpgsqlWatcher ловит события мгновенно через NOTIFY;
-                // ридер нужен только как резервный механизм.
                 operations.ConfigureOperationLogReader(_ => new()
                 {
                     CheckPeriod = TimeSpan.FromMinutes(5),
                 });
 
-                // Корень проблемы: DbEventLogReader по умолчанию опрашивает "_Events" каждую секунду.
-                // Если в таблице есть необработанные записи (State=0) — оставшиеся от старого
-                // PresenceReporter или других сессий — Fusion видит их и инвалидирует
-                // весь граф computed, что запускает SELECT users+roles каждую секунду.
-                // Переводим его в режим редкой проверки — инвалидация будет приходить
-                // через NpgsqlWatcher (мгновенно при реальном изменении ДБ).
                 operations.ConfigureEventLogReader(_ => new()
                 {
                     CheckPeriod = TimeSpan.FromMinutes(5),
@@ -65,44 +58,33 @@ public static class ServiceCollectionExtensions
     {
 
         services.AddAuthentication();
-
-        // 🔹 Регистрируем сервисы авторизации
         services.AddAuthorization();
 
-        // 🔹 Core builders — ОДИН РАЗ
         var fusion = services.AddFusion();
         var commander = services.AddCommander();
         var rpc = services.AddRpc();       
 
-        // Fusion Blazor + Auth
-        // ВАЖНО: AddPresenceReporter() НЕ вызываем на сервере!
-        // PresenceReporter пишет в _Operations каждую секунду для каждой
-        // подключённой сессии. NpgsqlWatcher ловит эти записи и инвалидирует
-        // весь граф Computed — именно это вызывало цикличный SELECT каждую секунду.
-        // PresenceReporter нужен только на клиенте (IST.Admin).
         fusion.AddBlazor()
             .AddAuthentication();
 
         fusion.AddClient<IAuth>(); // IAuth = a client of backend's IAuth
         fusion.Configure<IAuth>().IsServer(typeof(IAuth)).HasClient(); // Expose IAuth (a client) via RPC
-        // RPC transport
         rpc.AddWebSocketServer();
 
-        // Queries (Compute)
+        // Auth
         fusion.AddService<IAuthQueries, AuthQueries>(RpcServiceMode.Server);
-
-        // Commands
         fusion.AddService<IAuthCommands, AuthCommands>(RpcServiceMode.Server);
         commander.AddHandlers<AuthCommands>();
 
-        // Note: Dictionaries and Nsi services would need to be added here too once implemented in IST.Services
-        // fusion.AddService<INsiQueries, NsiQueries>(RpcServiceMode.Server);
-        // fusion.AddService<INsiCommands, NsiCommands>(RpcServiceMode.Server);
-        // commander.AddHandlers<NsiCommands>();
+        // NSI
+        fusion.AddService<INsiQueries, NsiQueries>(RpcServiceMode.Server);
+        fusion.AddService<INsiCommands, NsiCommands>(RpcServiceMode.Server);
+        commander.AddHandlers<NsiCommands>();
 
-        // fusion.AddService<IDictionaryQueries, DictionaryQueries>(RpcServiceMode.Server);
-        // fusion.AddService<IDictionaryCommands, DictionaryCommands>(RpcServiceMode.Server);
-        // commander.AddHandlers<DictionaryCommands>();
+        // Dictionaries
+        fusion.AddService<IDictionaryQueries, DictionaryQueries>(RpcServiceMode.Server);
+        fusion.AddService<IDictionaryCommands, DictionaryCommands>(RpcServiceMode.Server);
+        commander.AddHandlers<DictionaryCommands>();
 
         services.AddMapster();
 

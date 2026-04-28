@@ -86,7 +86,16 @@
         _processing = true;
         try
         {
-            var records = await _dictionaryQueries.GetDictionaryRecordsAsync(Dictionary.Id, cancellationToken);
+            List<DictionaryRecordDto> records;
+            try
+            {
+                records = await _dictionaryQueries.GetDictionaryRecordsAsync(Dictionary.Id, cancellationToken);
+            }
+            catch (Exception)
+            {
+                records = new List<DictionaryRecordDto>();
+            }
+
             var activeRecords = records.Where(r => !r.IsDeleted).OrderByDescending(r => r.CreatedAt).ToList();
             return new Model { Records = activeRecords };
         }

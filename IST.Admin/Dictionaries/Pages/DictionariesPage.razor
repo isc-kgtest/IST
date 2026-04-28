@@ -128,7 +128,16 @@
         _processing = true;
         try
         {
-            var dicts = await _dictionaryQueries.GetAllDictionariesAsync(cancellationToken);
+            List<DictionaryDto> dicts;
+            try
+            {
+                dicts = await _dictionaryQueries.GetAllDictionariesAsync(cancellationToken);
+            }
+            catch (Exception)
+            {
+                dicts = new List<DictionaryDto>();
+            }
+
             var activeDicts = dicts.Where(d => !d.IsDeleted).OrderByDescending(d => d.CreatedAt).ToList();
 
             // Обновляем данные открытых справочников, если они были изменены

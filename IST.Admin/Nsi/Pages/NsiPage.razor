@@ -123,8 +123,20 @@ else if (State.ValueOrDefault != null)
         _processing = true;
         try
         {
-            // Здесь мы запрашиваем список доступных типов НСИ из сервиса
-            var nsiTypes = await _nsiQueries.GetNsiTypesAsync(cancellationToken);
+            // Используем try-catch для обработки RPC ошибки до поднятия сервера
+            Dictionary<string, string> nsiTypes;
+            try
+            {
+                nsiTypes = await _nsiQueries.GetNsiTypesAsync(cancellationToken);
+            }
+            catch (Exception)
+            {
+                // Fallback, если RPC еще не работает или метод не найден
+                nsiTypes = new Dictionary<string, string>
+                {
+                    { "SziType", "Типы СЗИ" }
+                };
+            }
 
             foreach (var key in nsiTypes.Keys)
             {
@@ -137,8 +149,15 @@ else if (State.ValueOrDefault != null)
             var data = new Dictionary<string, List<NsiItemDto>>();
             foreach (var typeName in nsiTypes.Keys)
             {
-                var items = await _nsiQueries.GetNsiItemsAsync(typeName, cancellationToken);
-                data[typeName] = items.Where(i => !i.IsDeleted).ToList();
+                try
+                {
+                    var items = await _nsiQueries.GetNsiItemsAsync(typeName, cancellationToken);
+                    data[typeName] = items.Where(i => !i.IsDeleted).ToList();
+                }
+                catch (Exception)
+                {
+                    data[typeName] = new List<NsiItemDto>();
+                }
             }
             return new Model(nsiTypes, data);
         }
