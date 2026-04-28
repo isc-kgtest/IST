@@ -101,7 +101,8 @@ public static class ServiceCollectionExtensions
         fusion.AddBlazor();
 
         // Commander для диспатча команд
-        services.AddCommander();
+        // Регистрация командных интерфейсов на клиенте
+        var commander = services.AddCommander();
 
         return services;
     }
