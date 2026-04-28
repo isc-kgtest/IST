@@ -1,0 +1,93 @@
+@using IST.Contracts.Features.Nsi
+@using IST.Contracts.Features.Nsi.Commands
+@using ActualLab.Fusion
+
+@inject INsiCommands _nsiCommands
+@inject ISnackbar _snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-4">Выберите файл (XLSX, CSV) для импорта данных.</MudText>
+
+        <MudFileUpload T="IBrowserFile" FilesChanged="UploadFiles" Accept=".xlsx, .csv">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.CloudUpload">
+                    Выбрать файл
+                </MudButton>
+            </ActivatorContent>
+        </MudFileUpload>
+
+        @if (_file != null)
+        {
+            <MudText Typo="Typo.body2" Class="mt-2">Выбран файл: @_file.Name</MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(_file == null || _processing)">
+            @if (_processing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Импорт...</MudText>
+            }
+            else
+            {
+                <MudText>Импортировать</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string TypeName { get; set; } = string.Empty;
+
+    private IBrowserFile? _file;
+    private bool _processing;
+
+    private void UploadFiles(IBrowserFile file)
+    {
+        _file = file;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        if (_file == null) return;
+
+        _processing = true;
+        try
+        {
+            // Читаем файл в память
+            using var stream = _file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10 MB limit
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var fileBytes = ms.ToArray();
+
+            var command = new ImportNsiItemsCommand(Session.Default, TypeName, _file.Name, fileBytes);
+            var result = await _nsiCommands.ImportNsiItemsAsync(command);
+
+            if (result.Status)
+            {
+                _snackbar.Add("Данные успешно импортированы", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                _snackbar.Add($"Ошибка импорта: {result.StatusMessage}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Произошла ошибка: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+}

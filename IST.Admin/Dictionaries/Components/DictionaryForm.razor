@@ -1,0 +1,91 @@
+@using IST.Contracts.Features.Dictionaries
+@using IST.Contracts.Features.Dictionaries.Commands
+@using IST.Shared.DTOs.Dictionaries
+@using ActualLab.Fusion
+
+@inject IDictionaryCommands _dictionaryCommands
+@inject ISnackbar _snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_success">
+            <MudTextField @bind-Value="Item.Name" Label="Наименование справочника" Required="true" RequiredError="Наименование обязательно" Class="mb-3" />
+            <MudTextField @bind-Value="Item.Description" Label="Описание" Lines="2" Class="mb-3" />
+
+            <MudTextField @bind-Value="Item.FieldStructure"
+                          Label="Структура полей (JSON)"
+                          Lines="5"
+                          Class="mb-3"
+                          Required="true"
+                          HelperText="Пример: [{'name':'Code','type':'string'},{'name':'Value','type':'number'}]" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!_success || _processing)">
+            @if (_processing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Сохранение...</MudText>
+            }
+            else
+            {
+                <MudText>Сохранить</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public UpsertDictionaryRequest Item { get; set; } = new();
+
+    private MudForm _form = default!;
+    private bool _success;
+    private bool _processing;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        // Простая валидация JSON (можно добавить более сложную)
+        try
+        {
+            System.Text.Json.JsonDocument.Parse(Item.FieldStructure);
+        }
+        catch
+        {
+            _snackbar.Add("Некорректный формат JSON структуры", Severity.Warning);
+            return;
+        }
+
+        _processing = true;
+        try
+        {
+            var command = new UpsertDictionaryCommand(Session.Default, Item);
+            var result = await _dictionaryCommands.UpsertDictionaryAsync(command);
+
+            if (result.Status)
+            {
+                _snackbar.Add("Справочник сохранен", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                _snackbar.Add($"Ошибка сохранения: {result.StatusMessage}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Произошла ошибка: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+}

@@ -1,0 +1,74 @@
+@using IST.Contracts.Features.Nsi
+@using IST.Contracts.Features.Nsi.Commands
+@using IST.Shared.DTOs.Nsi
+@using ActualLab.Fusion
+
+@inject INsiCommands _nsiCommands
+@inject ISnackbar _snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_success">
+            <MudTextField @bind-Value="Item.Name" Label="Наименование" Required="true" RequiredError="Наименование обязательно" Class="mb-3" />
+            <MudTextField @bind-Value="Item.Description" Label="Описание" Lines="3" Class="mb-3" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!_success || _processing)">
+            @if (_processing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Сохранение...</MudText>
+            }
+            else
+            {
+                <MudText>Сохранить</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string TypeName { get; set; } = string.Empty;
+    [Parameter] public UpsertNsiItemRequest Item { get; set; } = new();
+
+    private MudForm _form = default!;
+    private bool _success;
+    private bool _processing;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        _processing = true;
+        try
+        {
+            var command = new UpsertNsiItemCommand(Session.Default, TypeName, Item);
+            var result = await _nsiCommands.UpsertNsiItemAsync(command);
+
+            if (result.Status)
+            {
+                _snackbar.Add("Запись сохранена", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                _snackbar.Add($"Ошибка сохранения: {result.StatusMessage}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Произошла ошибка: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+}

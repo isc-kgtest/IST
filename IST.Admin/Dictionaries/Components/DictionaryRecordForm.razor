@@ -1,0 +1,93 @@
+@using IST.Contracts.Features.Dictionaries
+@using IST.Contracts.Features.Dictionaries.Commands
+@using IST.Shared.DTOs.Dictionaries
+@using ActualLab.Fusion
+@using System.Text.Json
+
+@inject IDictionaryCommands _dictionaryCommands
+@inject ISnackbar _snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_success">
+            <MudAlert Severity="Severity.Info" Class="mb-3">
+                Структура: @Dictionary.FieldStructure
+            </MudAlert>
+
+            <MudTextField @bind-Value="Item.Data"
+                          Label="Данные (JSON)"
+                          Lines="5"
+                          Class="mb-3"
+                          Required="true"
+                          HelperText="Введите данные в формате JSON согласно структуре справочника" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="@(!_success || _processing)">
+            @if (_processing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Сохранение...</MudText>
+            }
+            else
+            {
+                <MudText>Сохранить</MudText>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public DictionaryDto Dictionary { get; set; } = default!;
+    [Parameter] public UpsertDictionaryRecordRequest Item { get; set; } = new();
+
+    private MudForm _form = default!;
+    private bool _success;
+    private bool _processing;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        try
+        {
+            JsonDocument.Parse(Item.Data);
+        }
+        catch
+        {
+            _snackbar.Add("Некорректный формат JSON", Severity.Warning);
+            return;
+        }
+
+        _processing = true;
+        try
+        {
+            var command = new UpsertDictionaryRecordCommand(Session.Default, Item);
+            var result = await _dictionaryCommands.UpsertDictionaryRecordAsync(command);
+
+            if (result.Status)
+            {
+                _snackbar.Add("Запись сохранена", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                _snackbar.Add($"Ошибка сохранения: {result.StatusMessage}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Произошла ошибка: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+}

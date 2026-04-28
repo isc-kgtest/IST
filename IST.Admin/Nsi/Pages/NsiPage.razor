@@ -1,0 +1,249 @@
+@page "/nsi"
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Blazor
+@using IST.Admin.Nsi.Components
+@using IST.Contracts.Features.Nsi
+@using IST.Contracts.Features.Nsi.Commands
+@using IST.Shared.DTOs.Nsi
+@using System.Reflection
+
+@* @attribute [Authorize(Roles = "admin")] *@
+
+@inherits ComputedStateComponent<NsiPage.Model>
+
+@inject INsiCommands _nsiCommands
+@inject INsiQueries _nsiQueries
+@inject IDialogService _dialogService
+@inject ISnackbar _snackbar
+
+<PageTitle>Управление НСИ</PageTitle>
+
+<MudAlert Elevation="0" Dense="true" Class="mb-4" Severity="Severity.Info">
+    Управление нормативно-справочной информацией
+</MudAlert>
+
+@if (_processing && State.ValueOrDefault == null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (State.ValueOrDefault != null)
+{
+    <MudTabs @bind-DisableRipple="_processing" Outlined="true" Rounded="true" ApplyEffectsToContainer="true">
+
+        @foreach (var nsiType in State.ValueOrDefault.NsiTypes)
+        {
+            var items = State.ValueOrDefault.Data.GetValueOrDefault(nsiType.Key) ?? new List<NsiItemDto>();
+            <MudTabPanel Text="@nsiType.Value" Icon="@Icons.Material.Rounded.List">
+                <MudDataGrid T="NsiItemDto"
+                             Items="@items"
+                             Hover="true"
+                             Striped="true"
+                             Dense="true"
+                             Filterable="true"
+                             SortMode="SortMode.Multiple"
+                             QuickFilter="@_searchFilter"
+                             Loading="@_processing">
+                    <ToolBarContent>
+                        <MudText Typo="Typo.h6">@nsiType.Value</MudText>
+                        <MudSpacer />
+                        <MudTextField @bind-Value="_searchStrings[nsiType.Key]"
+                                      Placeholder="Поиск..."
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                      IconSize="Size.Medium"
+                                      Class="mt-0 mr-4"
+                                      Clearable="true" />
+
+                        <MudTooltip Placement="Placement.Top" Text="Добавить запись">
+                            <MudFab Size="Size.Small" Color="Color.Success" StartIcon="@Icons.Material.Rounded.Add" OnClick="() => ShowCreateNsiItemForm(nsiType.Key, nsiType.Value)" />
+                        </MudTooltip>
+                        <MudTooltip Placement="Placement.Top" Text="Импорт">
+                            <MudFab Size="Size.Small" Class="ml-2" Color="Color.Info" StartIcon="@Icons.Material.Rounded.Upload" OnClick="() => ShowImportForm(nsiType.Key, nsiType.Value)" />
+                        </MudTooltip>
+                        <MudTooltip Placement="Placement.Top" Text="Обновить данные">
+                            <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
+                        </MudTooltip>
+                    </ToolBarContent>
+                    <Columns>
+                        <PropertyColumn Property="x => x.Name" Title="Наименование" />
+                        <PropertyColumn Property="x => x.Description" Title="Описание" />
+
+                        <TemplateColumn Title="Действия" Filterable="false" Sortable="false">
+                            <CellTemplate>
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true" Size="Size.Small">
+                                    <MudMenuItem Icon="@Icons.Material.Rounded.Edit" OnClick="() => ShowEditNsiItemForm(nsiType.Key, nsiType.Value, context.Item)">Редактировать</MudMenuItem>
+                                    <MudDivider />
+                                    <MudMenuItem Icon="@Icons.Material.Rounded.Delete" IconColor="Color.Error" OnClick="() => ShowDeleteNsiItemDialog(nsiType.Key, context.Item.Id, context.Item.Name)">Удалить</MudMenuItem>
+                                </MudMenu>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                    <PagerContent>
+                        <MudDataGridPager T="NsiItemDto" PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+                    </PagerContent>
+                </MudDataGrid>
+            </MudTabPanel>
+        }
+    </MudTabs>
+}
+
+@code {
+    public sealed record Model(Dictionary<string, string> NsiTypes, Dictionary<string, List<NsiItemDto>> Data)
+    {
+        public static readonly Model Empty = new(new(), new());
+    }
+
+    private bool _processing;
+
+    private Dictionary<string, string> _searchStrings = new();
+
+    private Func<NsiItemDto, bool> _searchFilter => x =>
+    {
+        var activeSearchStrings = _searchStrings.Values.Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+        if (!activeSearchStrings.Any())
+            return true;
+
+        foreach(var searchString in activeSearchStrings)
+        {
+            if (x.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase)) return true;
+            if (x.Description != null && x.Description.Contains(searchString, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    };
+
+    protected override ComputedState<Model>.Options GetStateOptions()
+        => new()
+        {
+            InitialValue = Model.Empty,
+            UpdateDelayer = FixedDelayer.Get(0),
+        };
+
+    protected override async Task<Model> ComputeState(CancellationToken cancellationToken)
+    {
+        _processing = true;
+        try
+        {
+            // Здесь мы запрашиваем список доступных типов НСИ из сервиса
+            var nsiTypes = await _nsiQueries.GetNsiTypesAsync(cancellationToken);
+
+            foreach (var key in nsiTypes.Keys)
+            {
+                if (!_searchStrings.ContainsKey(key))
+                {
+                    _searchStrings[key] = string.Empty;
+                }
+            }
+
+            var data = new Dictionary<string, List<NsiItemDto>>();
+            foreach (var typeName in nsiTypes.Keys)
+            {
+                var items = await _nsiQueries.GetNsiItemsAsync(typeName, cancellationToken);
+                data[typeName] = items.Where(i => !i.IsDeleted).ToList();
+            }
+            return new Model(nsiTypes, data);
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+
+    private async Task RefreshAsync() => await State.Recompute();
+
+    private async Task ShowCreateNsiItemForm(string typeName, string typeDisplayName)
+    {
+        var parameters = new DialogParameters
+        {
+            ["TypeName"] = typeName,
+            ["Item"] = new UpsertNsiItemRequest()
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialogRef = await _dialogService.ShowAsync<NsiItemForm>($"Добавить запись ({typeDisplayName})", parameters, options);
+        var result = await dialogRef.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task ShowEditNsiItemForm(string typeName, string typeDisplayName, NsiItemDto item)
+    {
+        var parameters = new DialogParameters
+        {
+            ["TypeName"] = typeName,
+            ["Item"] = new UpsertNsiItemRequest { Id = item.Id, Name = item.Name, Description = item.Description }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialogRef = await _dialogService.ShowAsync<NsiItemForm>($"Редактировать запись ({typeDisplayName})", parameters, options);
+        var result = await dialogRef.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task ShowDeleteNsiItemDialog(string typeName, Guid id, string name)
+    {
+        IDialogReference dialogRef = default!;
+        void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+        void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+        var parameters = new DialogParameters
+        {
+            ["ButtonOk"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<MudButton>(0);
+                builder.AddAttribute(1, "Color", Color.Error);
+                builder.AddAttribute(2, "Variant", Variant.Filled);
+                builder.AddAttribute(3, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, ConfirmDialog));
+                builder.AddAttribute(4, "ChildContent", (RenderFragment)(b => b.AddContent(5, "Удалить")));
+                builder.CloseComponent();
+            }),
+            ["ButtonCancel"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<MudButton>(0);
+                builder.AddAttribute(1, "Color", Color.Default);
+                builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, CancelDialog));
+                builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Отмена")));
+                builder.CloseComponent();
+            }),
+        };
+
+        var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Small };
+        dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить запись \"{name}\"?", parameters, options);
+
+        var result = await dialogRef.Result;
+        if (result.Canceled)
+            return;
+
+        try
+        {
+            var res = await _nsiCommands.DeleteNsiItemAsync(new DeleteNsiItemCommand(Session.Default, typeName, id));
+            if (res.Status)
+            {
+                _snackbar.Add("Запись удалена", Severity.Success);
+                await RefreshAsync();
+            }
+            else
+            {
+                _snackbar.Add($"Не удалось удалить запись: {res.StatusMessage}", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ShowImportForm(string typeName, string typeDisplayName)
+    {
+        var parameters = new DialogParameters
+        {
+            ["TypeName"] = typeName
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+        var dialogRef = await _dialogService.ShowAsync<NsiImportForm>($"Импорт данных ({typeDisplayName})", parameters, options);
+        var result = await dialogRef.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+}

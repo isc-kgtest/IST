@@ -1,0 +1,196 @@
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Blazor
+@using IST.Contracts.Features.Dictionaries
+@using IST.Contracts.Features.Dictionaries.Commands
+@using IST.Shared.DTOs.Dictionaries
+@using System.Text.Json
+
+@inherits ComputedStateComponent<DictionaryRecordsGrid.Model>
+
+@inject IDictionaryQueries _dictionaryQueries
+@inject IDictionaryCommands _dictionaryCommands
+@inject IDialogService _dialogService
+@inject ISnackbar _snackbar
+
+<MudPaper Elevation="0" Outlined="true" Class="pa-4">
+    <MudDataGrid T="DictionaryRecordDto"
+                 Items="@(State.ValueOrDefault?.Records ?? new())"
+                 Hover="true"
+                 Striped="true"
+                 Dense="true"
+                 Filterable="true"
+                 SortMode="SortMode.Multiple"
+                 Loading="@_processing">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">@Dictionary.Name</MudText>
+            <MudSpacer />
+            <MudTooltip Placement="Placement.Top" Text="Добавить запись">
+                <MudFab Size="Size.Small" Color="Color.Success" StartIcon="@Icons.Material.Rounded.Add" OnClick="ShowCreateRecordForm" />
+            </MudTooltip>
+            <MudTooltip Placement="Placement.Top" Text="Обновить данные">
+                <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
+            </MudTooltip>
+            <MudTooltip Placement="Placement.Top" Text="Закрыть вкладку">
+                <MudIconButton Class="ml-4" Icon="@Icons.Material.Rounded.Close" OnClick="CloseRequested" />
+            </MudTooltip>
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.CreatedAt" Title="Дата создания" Format="dd.MM.yyyy HH:mm" />
+
+            <TemplateColumn Title="Данные (JSON)" Sortable="false">
+                <CellTemplate>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary" Style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        @context.Item.Data
+                    </MudText>
+                </CellTemplate>
+            </TemplateColumn>
+
+            <TemplateColumn Title="Действия" Filterable="false" Sortable="false">
+                <CellTemplate>
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+                        <MudMenuItem Icon="@Icons.Material.Rounded.Edit" OnClick="() => ShowEditRecordForm(context.Item)">Редактировать</MudMenuItem>
+                        <MudDivider />
+                        <MudMenuItem Icon="@Icons.Material.Rounded.Delete" IconColor="Color.Error" OnClick="() => ShowDeleteRecordDialog(context.Item.Id)">Удалить</MudMenuItem>
+                    </MudMenu>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="DictionaryRecordDto" PageSizeOptions="new int[] { 10, 25, 50 }" />
+        </PagerContent>
+    </MudDataGrid>
+</MudPaper>
+
+@code {
+    public sealed record Model
+    {
+        public List<DictionaryRecordDto> Records { get; init; } = new();
+        public static readonly Model Empty = new Model();
+    }
+
+    [Parameter, EditorRequired] public DictionaryDto Dictionary { get; set; } = default!;
+    [Parameter] public EventCallback OnCloseRequested { get; set; }
+    [Parameter] public EventCallback RefreshRequested { get; set; }
+
+    private bool _processing;
+
+    protected override ComputedState<Model>.Options GetStateOptions()
+        => new()
+        {
+            InitialValue = Model.Empty,
+            UpdateDelayer = FixedDelayer.Get(0),
+        };
+
+    protected override async Task<Model> ComputeState(CancellationToken cancellationToken)
+    {
+        _processing = true;
+        try
+        {
+            var records = await _dictionaryQueries.GetDictionaryRecordsAsync(Dictionary.Id, cancellationToken);
+            var activeRecords = records.Where(r => !r.IsDeleted).OrderByDescending(r => r.CreatedAt).ToList();
+            return new Model { Records = activeRecords };
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+
+    private async Task RefreshAsync() => await State.Recompute();
+
+    private async Task CloseRequested()
+    {
+        if (OnCloseRequested.HasDelegate)
+        {
+            await OnCloseRequested.InvokeAsync();
+        }
+    }
+
+    private async Task ShowCreateRecordForm()
+    {
+        var parameters = new DialogParameters
+        {
+            ["Dictionary"] = Dictionary,
+            ["Item"] = new UpsertDictionaryRecordRequest { DictionaryId = Dictionary.Id }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialogRef = await _dialogService.ShowAsync<DictionaryRecordForm>($"Создать запись в {Dictionary.Name}", parameters, options);
+        var result = await dialogRef.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task ShowEditRecordForm(DictionaryRecordDto item)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Dictionary"] = Dictionary,
+            ["Item"] = new UpsertDictionaryRecordRequest
+            {
+                Id = item.Id,
+                DictionaryId = item.DictionaryId,
+                Data = item.Data
+            }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialogRef = await _dialogService.ShowAsync<DictionaryRecordForm>($"Редактировать запись", parameters, options);
+        var result = await dialogRef.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task ShowDeleteRecordDialog(Guid id)
+    {
+        IDialogReference dialogRef = default!;
+        void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+        void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+        var parameters = new DialogParameters
+        {
+            ["ButtonOk"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<MudButton>(0);
+                builder.AddAttribute(1, "Color", Color.Error);
+                builder.AddAttribute(2, "Variant", Variant.Filled);
+                builder.AddAttribute(3, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, ConfirmDialog));
+                builder.AddAttribute(4, "ChildContent", (RenderFragment)(b => b.AddContent(5, "Удалить")));
+                builder.CloseComponent();
+            }),
+            ["ButtonCancel"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<MudButton>(0);
+                builder.AddAttribute(1, "Color", Color.Default);
+                builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, CancelDialog));
+                builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Отмена")));
+                builder.CloseComponent();
+            }),
+        };
+
+        var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Small };
+        dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить запись?", parameters, options);
+
+        var result = await dialogRef.Result;
+        if (result.Canceled)
+            return;
+
+        try
+        {
+            var res = await _dictionaryCommands.DeleteDictionaryRecordAsync(new DeleteDictionaryRecordCommand(Session.Default, Dictionary.Id, id));
+            if (res.Status)
+            {
+                _snackbar.Add("Запись удалена", Severity.Success);
+                await RefreshAsync();
+            }
+            else
+            {
+                _snackbar.Add($"Не удалось удалить запись: {res.StatusMessage}", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
+        }
+    }
+}

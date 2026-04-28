@@ -1,0 +1,267 @@
+@page "/dictionaries"
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Blazor
+@using IST.Admin.Dictionaries.Components
+@using IST.Contracts.Features.Dictionaries
+@using IST.Contracts.Features.Dictionaries.Commands
+@using IST.Shared.DTOs.Dictionaries
+
+@* @attribute [Authorize(Roles = "admin")] *@
+
+@inherits ComputedStateComponent<DictionariesPage.Model>
+
+@inject IDictionaryCommands _dictionaryCommands
+@inject IDictionaryQueries _dictionaryQueries
+@inject IDialogService _dialogService
+@inject ISnackbar _snackbar
+
+<PageTitle>Конструктор справочников</PageTitle>
+
+<MudAlert Elevation="0" Dense="true" Class="mb-4" Severity="Severity.Info">
+    Управление динамическими справочниками и их записями
+</MudAlert>
+
+<MudTabs @bind-DisableRipple="_processing" Outlined="true" Rounded="true" ApplyEffectsToContainer="true">
+
+    @* ========================== Вкладка Метаданные (Список справочников) ========================== *@
+    <MudTabPanel Text="Справочники" Icon="@Icons.Material.Rounded.MenuBook">
+        <MudDataGrid T="DictionaryDto"
+                     Items="@(State.ValueOrDefault?.Dictionaries ?? new())"
+                     Hover="true"
+                     Striped="true"
+                     Dense="true"
+                     Filterable="true"
+                     SortMode="SortMode.Multiple"
+                     QuickFilter="@_dictionaryFilter"
+                     Loading="@_processing">
+            <ToolBarContent>
+                <MudText Typo="Typo.h6">Список справочников</MudText>
+                <MudSpacer />
+                <MudTextField @bind-Value="_dictionarySearchString"
+                              Placeholder="Поиск справочника..."
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="Size.Medium"
+                              Class="mt-0 mr-4"
+                              Clearable="true" />
+
+                <MudTooltip Placement="Placement.Top" Text="Создать новый справочник">
+                    <MudFab Size="Size.Small" Color="Color.Success" StartIcon="@Icons.Material.Rounded.Add" OnClick="ShowCreateDictionaryForm" />
+                </MudTooltip>
+                <MudTooltip Placement="Placement.Top" Text="Обновить данные">
+                    <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
+                </MudTooltip>
+            </ToolBarContent>
+            <Columns>
+                <PropertyColumn Property="x => x.Name" Title="Наименование" />
+                <PropertyColumn Property="x => x.Description" Title="Описание" />
+                <PropertyColumn Property="x => x.CreatedAt" Title="Дата создания" Format="dd.MM.yyyy HH:mm" />
+
+                <TemplateColumn Title="Поля" Filterable="false" Sortable="false">
+                    <CellTemplate>
+                        @* Просто показываем, что есть структура JSON. Полноценно она редактируется в форме *@
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Конфиг</MudChip>
+                    </CellTemplate>
+                </TemplateColumn>
+
+                <TemplateColumn Title="Действия" Filterable="false" Sortable="false">
+                    <CellTemplate>
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+                            <MudMenuItem Icon="@Icons.Material.Rounded.Edit" OnClick="() => ShowEditDictionaryForm(context.Item)">Редактировать структуру</MudMenuItem>
+                            <MudMenuItem Icon="@Icons.Material.Rounded.TableRows" OnClick="() => ShowDictionaryRecordsPage(context.Item)">Просмотр записей</MudMenuItem>
+                            <MudDivider />
+                            <MudMenuItem Icon="@Icons.Material.Rounded.Delete" IconColor="Color.Error" OnClick="() => ShowDeleteDictionaryDialog(context.Item.Id, context.Item.Name)">Удалить</MudMenuItem>
+                        </MudMenu>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="DictionaryDto" PageSizeOptions="new int[] { 10, 25, 50 }" />
+            </PagerContent>
+        </MudDataGrid>
+    </MudTabPanel>
+
+    @* ========================== Динамические Вкладки для открытых справочников ========================== *@
+    @foreach (var dict in _openDictionaries)
+    {
+        <MudTabPanel Text="@dict.Name" Icon="@Icons.Material.Rounded.TableView">
+            <DictionaryRecordsGrid Dictionary="@dict"
+                                   OnCloseRequested="() => CloseDictionaryTab(dict.Id)"
+                                   RefreshRequested="RefreshAsync" />
+        </MudTabPanel>
+    }
+</MudTabs>
+
+@code {
+    public sealed record Model
+    {
+        public List<DictionaryDto> Dictionaries { get; init; } = new();
+        public static readonly Model Empty = new Model();
+    }
+
+    private bool _processing;
+    private string _dictionarySearchString = string.Empty;
+
+    // Список справочников, которые пользователь открыл для просмотра записей (вкладки)
+    private List<DictionaryDto> _openDictionaries = new();
+
+    private Func<DictionaryDto, bool> _dictionaryFilter => x =>
+    {
+        if (string.IsNullOrWhiteSpace(_dictionarySearchString))
+            return true;
+
+        if (x.Name.Contains(_dictionarySearchString, StringComparison.OrdinalIgnoreCase)) return true;
+        if (x.Description != null && x.Description.Contains(_dictionarySearchString, StringComparison.OrdinalIgnoreCase)) return true;
+
+        return false;
+    };
+
+    protected override ComputedState<Model>.Options GetStateOptions()
+        => new()
+        {
+            InitialValue = Model.Empty,
+            UpdateDelayer = FixedDelayer.Get(0),
+        };
+
+    protected override async Task<Model> ComputeState(CancellationToken cancellationToken)
+    {
+        _processing = true;
+        try
+        {
+            var dicts = await _dictionaryQueries.GetAllDictionariesAsync(cancellationToken);
+            var activeDicts = dicts.Where(d => !d.IsDeleted).OrderByDescending(d => d.CreatedAt).ToList();
+
+            // Обновляем данные открытых справочников, если они были изменены
+            for (int i = 0; i < _openDictionaries.Count; i++)
+            {
+                var updated = activeDicts.FirstOrDefault(d => d.Id == _openDictionaries[i].Id);
+                if (updated != null)
+                {
+                    _openDictionaries[i] = updated;
+                }
+                else
+                {
+                    // Справочник был удален, закрываем вкладку (можно вынести в отдельный метод)
+                }
+            }
+
+            return new Model { Dictionaries = activeDicts };
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+
+    private async Task RefreshAsync() => await State.Recompute();
+
+    private async Task ShowCreateDictionaryForm()
+    {
+        var parameters = new DialogParameters
+        {
+            ["Item"] = new UpsertDictionaryRequest()
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialogRef = await _dialogService.ShowAsync<DictionaryForm>("Создать новый справочник", parameters, options);
+        var result = await dialogRef.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task ShowEditDictionaryForm(DictionaryDto item)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Item"] = new UpsertDictionaryRequest
+            {
+                Id = item.Id,
+                Name = item.Name,
+                Description = item.Description,
+                FieldStructure = item.FieldStructure
+            }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialogRef = await _dialogService.ShowAsync<DictionaryForm>("Редактирование справочника", parameters, options);
+        var result = await dialogRef.Result;
+        if (!result.Canceled)
+            await RefreshAsync();
+    }
+
+    private async Task ShowDeleteDictionaryDialog(Guid id, string name)
+    {
+        IDialogReference dialogRef = default!;
+        void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
+        void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
+
+        var parameters = new DialogParameters
+        {
+            ["ButtonOk"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<MudButton>(0);
+                builder.AddAttribute(1, "Color", Color.Error);
+                builder.AddAttribute(2, "Variant", Variant.Filled);
+                builder.AddAttribute(3, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, ConfirmDialog));
+                builder.AddAttribute(4, "ChildContent", (RenderFragment)(b => b.AddContent(5, "Удалить")));
+                builder.CloseComponent();
+            }),
+            ["ButtonCancel"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<MudButton>(0);
+                builder.AddAttribute(1, "Color", Color.Default);
+                builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, CancelDialog));
+                builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Отмена")));
+                builder.CloseComponent();
+            }),
+        };
+
+        var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Small };
+        dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить справочник \"{name}\"?", parameters, options);
+
+        var result = await dialogRef.Result;
+        if (result.Canceled)
+            return;
+
+        try
+        {
+            var res = await _dictionaryCommands.DeleteDictionaryAsync(new DeleteDictionaryCommand(Session.Default, id));
+            if (res.Status)
+            {
+                _snackbar.Add("Справочник удален", Severity.Success);
+                CloseDictionaryTab(id);
+                await RefreshAsync();
+            }
+            else
+            {
+                _snackbar.Add($"Не удалось удалить справочник: {res.StatusMessage}", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Add($"Ошибка удаления: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void ShowDictionaryRecordsPage(DictionaryDto dictionary)
+    {
+        if (!_openDictionaries.Any(d => d.Id == dictionary.Id))
+        {
+            _openDictionaries.Add(dictionary);
+            StateHasChanged();
+        }
+        // В идеале, здесь нужно программно переключить активный таб,
+        // но MudTabs не всегда легко управляется из кода без привязки к ActivePanelIndex.
+        // Для простоты оставляем так.
+    }
+
+    private void CloseDictionaryTab(Guid dictionaryId)
+    {
+        var dict = _openDictionaries.FirstOrDefault(d => d.Id == dictionaryId);
+        if (dict != null)
+        {
+            _openDictionaries.Remove(dict);
+            StateHasChanged();
+        }
+    }
+}

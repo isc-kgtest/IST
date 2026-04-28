@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="MemoryPack" Version="1.21.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.6" />
   </ItemGroup>
 
 </Project>
