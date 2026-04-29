@@ -1,0 +1,77 @@
+@using ActualLab.Fusion
+@using IST.Contracts.Features.Dictionaries
+@using IST.Contracts.Features.Dictionaries.Commands
+@using IST.Shared.DTOs.Dictionaries
+@using IST.Core.Entities.Dictionaries.Enums
+
+@inject IDictionaryCommands _dictCommands
+@inject ISnackbar _snackbar
+
+<MudPaper Style="min-width:360px;" Elevation="0">
+    <EditForm Model="@_request" OnValidSubmit="SubmitForm">
+        <DataAnnotationsValidator />
+        <MudTextField T="string" @bind-Value="_request.FieldKey" Label="Ключ поля (camelCase)" Required="true" />
+        <MudTextField T="string" @bind-Value="_request.DisplayName" Label="Отображаемое название" Required="true" Class="mt-3" />
+        <MudSelect T="DictionaryFieldType" @bind-Value="_request.FieldType" Label="Тип данных" Class="mt-3">
+            @foreach (DictionaryFieldType ft in Enum.GetValues<DictionaryFieldType>())
+            {
+                <MudSelectItem Value="ft">@ft</MudSelectItem>
+            }
+        </MudSelect>
+        <MudNumericField T="int" @bind-Value="_request.SortOrder" Label="Порядок сортировки" Class="mt-3" />
+        <MudCheckBox T="bool" @bind-Value="_request.IsRequired" Label="Обязательное поле" Class="mt-3" />
+
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-5" Spacing="2">
+            <MudButton OnClick="Cancel" Variant="Variant.Text" Color="Color.Default" Disabled="_p">Отмена</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_p">
+                @(_p ? "Сохранение..." : "Сохранить")
+            </MudButton>
+        </MudStack>
+        <MudProgressLinear Color="Color.Primary" Indeterminate="_p" Class="mt-4" />
+    </EditForm>
+</MudPaper>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public Guid DictionaryId { get; set; }
+    [Parameter] public DictionaryFieldDto? Field { get; set; }
+
+    private bool _p;
+    private DictionaryFieldRequest _request = new();
+
+    protected override void OnParametersSet()
+    {
+        if (Field != null)
+        {
+            _request = new()
+            {
+                Id = Field.Id,
+                FieldKey = Field.FieldKey,
+                DisplayName = Field.DisplayName,
+                FieldType = Field.FieldType,
+                IsRequired = Field.IsRequired,
+                SortOrder = Field.SortOrder
+            };
+        }
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task SubmitForm()
+    {
+        if (_p) return;
+        _p = true;
+        try
+        {
+            var res = await _dictCommands.SaveFieldAsync(new SaveDictionaryFieldCommand(Session.Default, DictionaryId, _request));
+            if (res.Status && res.Data != null)
+            {
+                _snackbar.Add($"Поле сохранено: {res.Data.DisplayName}", Severity.Success);
+                MudDialog?.Close(DialogResult.Ok(true));
+            }
+            else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
+        }
+        catch (Exception ex) { _snackbar.Add($"Ошибка: {ex.Message}", Severity.Error); }
+        finally { _p = false; StateHasChanged(); }
+    }
+}

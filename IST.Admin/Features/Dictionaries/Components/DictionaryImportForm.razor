@@ -1,0 +1,66 @@
+@using ActualLab.Fusion
+@using IST.Contracts.Features.Dictionaries
+@using IST.Contracts.Features.Dictionaries.Commands
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject IDictionaryCommands _dictCommands
+@inject ISnackbar _snackbar
+
+<MudPaper Style="min-width:320px;" Elevation="0">
+    <MudText Typo="Typo.body2" Class="mb-4">
+        Выберите файл <b>XLSX</b> или <b>CSV</b> для импорта записей в справочник.
+    </MudText>
+
+    <MudFileUpload T="IBrowserFile" Accept=".xlsx,.csv" FilesChanged="OnFileSelected">
+        <ActivatorContent>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.CloudUpload">
+                Выбрать файл
+            </MudButton>
+        </ActivatorContent>
+    </MudFileUpload>
+
+    @if (_file != null)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">@_file.Name (@(_file.Size / 1024) КБ)</MudAlert>
+    }
+
+    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-5" Spacing="2">
+        <MudButton OnClick="Cancel" Variant="Variant.Text" Color="Color.Default" Disabled="_p">Отмена</MudButton>
+        <MudButton OnClick="SubmitImport" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_p || _file == null)">
+            @(_p ? "Импорт..." : "Импортировать")
+        </MudButton>
+    </MudStack>
+    <MudProgressLinear Color="Color.Primary" Indeterminate="_p" Class="mt-4" />
+</MudPaper>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public Guid DictionaryId { get; set; }
+
+    private bool _p;
+    private IBrowserFile? _file;
+
+    private void Cancel() => MudDialog?.Cancel();
+    private void OnFileSelected(IBrowserFile file) => _file = file;
+
+    private async Task SubmitImport()
+    {
+        if (_p || _file == null) return;
+        _p = true;
+        try
+        {
+            using var ms = new MemoryStream();
+            await _file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(ms);
+            var command = new ImportDictionaryRecordsCommand(Session.Default, DictionaryId, ms.ToArray(), _file.Name);
+            var res = await _dictCommands.ImportRecordsAsync(command);
+            if (res.Status)
+            {
+                _snackbar.Add($"Импортировано записей: {res.Data}", Severity.Success);
+                MudDialog?.Close(DialogResult.Ok(true));
+            }
+            else _snackbar.Add($"Ошибка импорта: {res.StatusMessage}", Severity.Warning);
+        }
+        catch (Exception ex) { _snackbar.Add($"Ошибка: {ex.Message}", Severity.Error); }
+        finally { _p = false; StateHasChanged(); }
+    }
+}

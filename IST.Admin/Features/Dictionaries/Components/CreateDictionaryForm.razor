@@ -1,0 +1,102 @@
+@using ActualLab.Fusion
+@using IST.Contracts.Features.Dictionaries
+@using IST.Contracts.Features.Dictionaries.Commands
+@using IST.Shared.DTOs.Dictionaries
+@using IST.Core.Entities.Dictionaries.Enums
+
+@inject IDictionaryCommands _dictCommands
+@inject ISnackbar _snackbar
+
+<MudPaper Style="min-width:480px;" Elevation="0">
+    <EditForm Model="@_request" OnValidSubmit="SubmitForm">
+        <DataAnnotationsValidator />
+        <MudTextField T="string" @bind-Value="_request.Name" Label="Наименование" Required="true" />
+        <MudTextField T="string" @bind-Value="_request.Slug" Label="Slug (системный код)" Required="true" Class="mt-3"
+                      HelperText="Латиница, snake_case. Пример: product_types" />
+        <MudTextField T="string" @bind-Value="_request.Description" Label="Описание" Lines="2" Class="mt-3" />
+
+        <MudDivider Class="my-4" />
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Структура полей</MudText>
+
+        @for (var i = 0; i < _request.Fields.Count; i++)
+        {
+            var idx = i;
+            <MudPaper Class="pa-3 mb-2" Outlined="true">
+                <MudGrid>
+                    <MudItem xs="3">
+                        <MudTextField T="string" @bind-Value="_request.Fields[idx].FieldKey" Label="Ключ" Required="true" Dense="true" />
+                    </MudItem>
+                    <MudItem xs="3">
+                        <MudTextField T="string" @bind-Value="_request.Fields[idx].DisplayName" Label="Название" Required="true" Dense="true" />
+                    </MudItem>
+                    <MudItem xs="2">
+                        <MudSelect T="DictionaryFieldType" @bind-Value="_request.Fields[idx].FieldType" Label="Тип" Dense="true">
+                            @foreach (DictionaryFieldType ft in Enum.GetValues<DictionaryFieldType>())
+                            {
+                                <MudSelectItem Value="ft">@ft</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="1">
+                        <MudNumericField T="int" @bind-Value="_request.Fields[idx].SortOrder" Label="#" Dense="true" />
+                    </MudItem>
+                    <MudItem xs="1">
+                        <MudCheckBox T="bool" @bind-Value="_request.Fields[idx].IsRequired" Label="Обяз." Dense="true" />
+                    </MudItem>
+                    <MudItem xs="2" Class="d-flex align-center">
+                        <MudIconButton Icon="@Icons.Material.Rounded.RemoveCircle" Color="Color.Error" Size="Size.Small"
+                                       OnClick="() => _request.Fields.RemoveAt(idx)" />
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        }
+
+        <MudButton StartIcon="@Icons.Material.Rounded.AddCircle" Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                   OnClick="AddField" Class="mb-4">
+            Добавить поле
+        </MudButton>
+
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-3" Spacing="2">
+            <MudButton OnClick="Cancel" Variant="Variant.Text" Color="Color.Default" Disabled="_p">Отмена</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_p">
+                @(_p ? "Создание..." : "Создать")
+            </MudButton>
+        </MudStack>
+        <MudProgressLinear Color="Color.Primary" Indeterminate="_p" Class="mt-4" />
+    </EditForm>
+</MudPaper>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private bool _p;
+    private CreateDictionaryRequest _request = new();
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private void AddField()
+    {
+        _request.Fields.Add(new DictionaryFieldRequest
+        {
+            SortOrder = _request.Fields.Count + 1
+        });
+    }
+
+    private async Task SubmitForm()
+    {
+        if (_p) return;
+        _p = true;
+        try
+        {
+            var res = await _dictCommands.CreateDictionaryAsync(new CreateDictionaryCommand(Session.Default, _request));
+            if (res.Status && res.Data != null)
+            {
+                _snackbar.Add($"Справочник создан: {res.Data.Name}", Severity.Success);
+                MudDialog?.Close(DialogResult.Ok(true));
+            }
+            else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
+        }
+        catch (Exception ex) { _snackbar.Add($"Ошибка: {ex.Message}", Severity.Error); }
+        finally { _p = false; StateHasChanged(); }
+    }
+}

@@ -1,0 +1,146 @@
+@using System.Text.Json
+@using ActualLab.Fusion
+@using IST.Contracts.Features.Dictionaries
+@using IST.Contracts.Features.Dictionaries.Commands
+@using IST.Shared.DTOs.Dictionaries
+@using IST.Core.Entities.Dictionaries.Enums
+
+@inject IDictionaryCommands _dictCommands
+@inject ISnackbar _snackbar
+
+<MudPaper Style="min-width:400px;" Elevation="0">
+    <EditForm Model="@_formValues" OnValidSubmit="SubmitForm">
+        <DataAnnotationsValidator />
+
+        @foreach (var field in Fields.Where(f => !f.IsDeleted).OrderBy(f => f.SortOrder))
+        {
+            <div class="mt-3">
+                @switch (field.FieldType)
+                {
+                    case DictionaryFieldType.Text:
+                        <MudTextField T="string"
+                                      Value="@GetValue(field.FieldKey)"
+                                      ValueChanged="(v) => SetValue(field.FieldKey, v)"
+                                      Label="@field.DisplayName"
+                                      Required="field.IsRequired" />
+                        break;
+
+                    case DictionaryFieldType.Number:
+                        <MudNumericField T="long?"
+                                         Value="@GetLongValue(field.FieldKey)"
+                                         ValueChanged="@(v => SetValue(field.FieldKey, v?.ToString() ?? ""))"
+                                         Label="@field.DisplayName"
+                                         Required="field.IsRequired" />
+                        break;
+
+                    case DictionaryFieldType.Decimal:
+                        <MudNumericField T="decimal?"
+                                         Value="@GetDecimalValue(field.FieldKey)"
+                                         ValueChanged="@(v => SetValue(field.FieldKey, v?.ToString() ?? ""))"
+                                         Label="@field.DisplayName"
+                                         Required="field.IsRequired" />
+                        break;
+
+                    case DictionaryFieldType.Boolean:
+                        <MudCheckBox T="bool"
+                                     Value="@GetBoolValue(field.FieldKey)"
+                                     ValueChanged="(v) => SetValue(field.FieldKey, v.ToString())"
+                                     Label="@field.DisplayName" />
+                        break;
+
+                    case DictionaryFieldType.Date:
+                        <MudDatePicker Label="@field.DisplayName"
+                                       Date="@GetDateValue(field.FieldKey)"
+                                       DateChanged="@(v => SetValue(field.FieldKey, v?.ToString("yyyy-MM-dd") ?? ""))"
+                                       Required="field.IsRequired" />
+                        break;
+
+                    case DictionaryFieldType.DateTime:
+                        <MudTextField T="string"
+                                      Value="@GetValue(field.FieldKey)"
+                                      ValueChanged="(v) => SetValue(field.FieldKey, v)"
+                                      Label="@field.DisplayName"
+                                      InputType="InputType.DateTimeLocal"
+                                      Required="field.IsRequired" />
+                        break;
+
+                    default:
+                        <MudTextField T="string"
+                                      Value="@GetValue(field.FieldKey)"
+                                      ValueChanged="(v) => SetValue(field.FieldKey, v)"
+                                      Label="@field.DisplayName"
+                                      Required="field.IsRequired" />
+                        break;
+                }
+            </div>
+        }
+
+        <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-5" Spacing="2">
+            <MudButton OnClick="Cancel" Variant="Variant.Text" Color="Color.Default" Disabled="_p">Отмена</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_p">
+                @(_p ? "Сохранение..." : "Сохранить")
+            </MudButton>
+        </MudStack>
+        <MudProgressLinear Color="Color.Primary" Indeterminate="_p" Class="mt-4" />
+    </EditForm>
+</MudPaper>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public Guid DictionaryId { get; set; }
+    [Parameter] public List<DictionaryFieldDto> Fields { get; set; } = new();
+    [Parameter] public DictionaryRecordDto? Record { get; set; }
+
+    private bool _p;
+    private Dictionary<string, string> _formValues = new();
+
+    protected override void OnParametersSet()
+    {
+        _formValues = new();
+        if (Record != null)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(Record.Data);
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                    _formValues[prop.Name] = prop.Value.ToString();
+            }
+            catch { }
+        }
+    }
+
+    private string GetValue(string key) => _formValues.TryGetValue(key, out var v) ? v : "";
+    private long? GetLongValue(string key) => long.TryParse(GetValue(key), out var v) ? v : null;
+    private decimal? GetDecimalValue(string key) => decimal.TryParse(GetValue(key), out var v) ? v : null;
+    private bool GetBoolValue(string key) => bool.TryParse(GetValue(key), out var v) && v;
+    private DateTime? GetDateValue(string key) => DateTime.TryParse(GetValue(key), out var v) ? v : null;
+
+    private void SetValue(string key, string value) => _formValues[key] = value;
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task SubmitForm()
+    {
+        if (_p) return;
+        _p = true;
+        try
+        {
+            var json = JsonSerializer.Serialize(_formValues);
+            var request = new SaveDictionaryRecordRequest
+            {
+                Id = Record?.Id,
+                DictionaryId = DictionaryId,
+                Data = json
+            };
+            var res = await _dictCommands.SaveRecordAsync(new SaveDictionaryRecordCommand(Session.Default, request));
+            if (res.Status && res.Data != null)
+            {
+                _snackbar.Add("Запись сохранена", Severity.Success);
+                MudDialog?.Close(DialogResult.Ok(true));
+            }
+            else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
+        }
+        catch (Exception ex) { _snackbar.Add($"Ошибка: {ex.Message}", Severity.Error); }
+        finally { _p = false; StateHasChanged(); }
+    }
+}

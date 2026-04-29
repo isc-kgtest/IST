@@ -5,6 +5,8 @@ using ActualLab.Fusion.Blazor.Authentication;
 using ActualLab.Rpc;
 using IST.Admin.Auth;
 using IST.Contracts.Features.Auth;
+using IST.Contracts.Features.Dictionaries;
+using IST.Contracts.Features.Dictionaries.Commands;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Threading.RateLimiting;
@@ -88,6 +90,9 @@ public static class ServiceCollectionExtensions
         // Клиенты Queries и Commands.
         fusion.AddClient<IAuthQueries>();
         fusion.AddClient<IAuthCommands>();
+        
+        fusion.AddClient<IDictionaryQueries>();
+        fusion.AddClient<IDictionaryCommands>();
 
         // Blazor-интеграция Fusion (CircuitHub и т.п.) + AuthN на Blazor-стороне.
         fusion.AddBlazor();

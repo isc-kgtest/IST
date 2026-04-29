@@ -1,0 +1,155 @@
+@using System.Text.Json
+@using ActualLab.Fusion
+@using IST.Contracts.Features.Dictionaries
+@using IST.Contracts.Features.Dictionaries.Commands
+@using IST.Shared.DTOs.Dictionaries
+@using IST.Shared.DTOs.Common
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject IDictionaryCommands _dictCommands
+@inject ISnackbar _snackbar
+@inject IDialogService _dialogService
+@inject IJSRuntime _js
+
+<MudDataGrid T="DictionaryRecordDto"
+             Items="@Records"
+             Hover="true" Striped="true" Dense="true"
+             Loading="@Loading">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Записи</MudText>
+        <MudSpacer />
+        <MudTooltip Placement="Placement.Top" Text="Добавить запись">
+            <MudFab Size="Size.Small" Color="Color.Success" StartIcon="@Icons.Material.Rounded.Add" OnClick="ShowAddRecordDialog" />
+        </MudTooltip>
+        <MudTooltip Placement="Placement.Top" Text="Импорт">
+            <MudFab Size="Size.Small" Class="ml-2" Color="Color.Warning" StartIcon="@Icons.Material.Rounded.Upload" OnClick="ShowImportDialog" />
+        </MudTooltip>
+        <MudTooltip Placement="Placement.Top" Text="Экспорт XLSX">
+            <MudFab Size="Size.Small" Class="ml-2" Color="Color.Info" StartIcon="@Icons.Material.Rounded.Download" OnClick="@(() => ExportAsync("xlsx"))" />
+        </MudTooltip>
+        <MudTooltip Placement="Placement.Top" Text="Обновить">
+            <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="@(() => OnRefresh.InvokeAsync())" />
+        </MudTooltip>
+    </ToolBarContent>
+    <Columns>
+        @foreach (var field in Fields.Where(f => !f.IsDeleted).OrderBy(f => f.SortOrder))
+        {
+            var fKey = field.FieldKey;
+            <TemplateColumn Title="@field.DisplayName">
+                <CellTemplate>
+                    @GetCellValue(context.Item.Data, fKey)
+                </CellTemplate>
+            </TemplateColumn>
+        }
+        <TemplateColumn Title="Действия" Filterable="false" Sortable="false">
+            <CellTemplate>
+                <MudIconButton Icon="@Icons.Material.Rounded.Edit" Size="Size.Small" OnClick="() => ShowEditRecordDialog(context.Item)" />
+                <MudIconButton Icon="@Icons.Material.Rounded.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => DeleteRecord(context.Item.Id)" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <PagerContent>
+        <MudDataGridPager T="DictionaryRecordDto" PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    [Parameter] public Guid DictionaryId { get; set; }
+    [Parameter] public List<DictionaryFieldDto> Fields { get; set; } = new();
+    [Parameter] public List<DictionaryRecordDto> Records { get; set; } = new();
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+
+    private string GetCellValue(string json, string key)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty(key, out var val))
+                return val.ToString();
+        }
+        catch { }
+        return "—";
+    }
+
+    private async Task ShowAddRecordDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            ["ChildContent"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<DictionaryRecordForm>(0);
+                builder.AddAttribute(1, "DictionaryId", DictionaryId);
+                builder.AddAttribute(2, "Fields", Fields);
+                builder.CloseComponent();
+            })
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Добавить запись", parameters, options);
+        var result = await dialogRef.Result;
+        if (!result.Canceled) await OnRefresh.InvokeAsync();
+    }
+
+    private async Task ShowEditRecordDialog(DictionaryRecordDto record)
+    {
+        var parameters = new DialogParameters
+        {
+            ["ChildContent"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<DictionaryRecordForm>(0);
+                builder.AddAttribute(1, "DictionaryId", DictionaryId);
+                builder.AddAttribute(2, "Fields", Fields);
+                builder.AddAttribute(3, "Record", record);
+                builder.CloseComponent();
+            })
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Редактировать запись", parameters, options);
+        var result = await dialogRef.Result;
+        if (!result.Canceled) await OnRefresh.InvokeAsync();
+    }
+
+    private async Task DeleteRecord(Guid recordId)
+    {
+        try
+        {
+            var res = await _dictCommands.DeleteRecordAsync(new DeleteDictionaryRecordCommand(Session.Default, recordId));
+            if (res.Status) { _snackbar.Add("Запись удалена", Severity.Success); await OnRefresh.InvokeAsync(); }
+            else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
+        }
+        catch (Exception ex) { _snackbar.Add($"Ошибка: {ex.Message}", Severity.Error); }
+    }
+
+    private async Task ShowImportDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            ["ChildContent"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<DictionaryImportForm>(0);
+                builder.AddAttribute(1, "DictionaryId", DictionaryId);
+                builder.CloseComponent();
+            })
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
+        var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Импорт записей", parameters, options);
+        var result = await dialogRef.Result;
+        if (!result.Canceled) await OnRefresh.InvokeAsync();
+    }
+
+    private async Task ExportAsync(string format)
+    {
+        try
+        {
+            var res = await _dictCommands.ExportRecordsAsync(new ExportDictionaryRecordsCommand(Session.Default, DictionaryId, format));
+            if (res.Status && res.Data != null)
+            {
+                var base64 = Convert.ToBase64String(res.Data.FileContent);
+                await _js.InvokeVoidAsync("downloadFile", res.Data.FileName, res.Data.ContentType, base64);
+                _snackbar.Add("Файл экспортирован", Severity.Success);
+            }
+            else _snackbar.Add($"Ошибка экспорта: {res.StatusMessage}", Severity.Warning);
+        }
+        catch (Exception ex) { _snackbar.Add($"Ошибка: {ex.Message}", Severity.Error); }
+    }
+}

@@ -2,6 +2,7 @@ using ActualLab.Fusion.EntityFramework;
 using ActualLab.Fusion.EntityFramework.Operations;
 using IST.Core.Entities.Auth;
 using IST.Core.Entities.BaseEntities;
+using IST.Core.Entities.Dictionaries;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Linq.Expressions;
@@ -25,6 +26,10 @@ public class AppDbContext : DbContextBase, IAppDbContext
     public DbSet<RoleEntity> Roles { get; set; } = null!;
     public DbSet<UserRolesEntity> UserRoles { get; set; } = null!;
 
+    public DbSet<DictionaryEntity> Dictionaries { get; set; } = null!;
+    public DbSet<DictionaryFieldEntity> DictionaryFields { get; set; } = null!;
+    public DbSet<DictionaryRecordEntity> DictionaryRecords { get; set; } = null!;
+
     // Служебные таблицы Fusion для распределённой инвалидации
     public DbSet<DbOperation> Operations { get; protected set; } = null!;
     public DbSet<DbEvent> Events { get; protected set; } = null!;
@@ -37,6 +42,10 @@ public class AppDbContext : DbContextBase, IAppDbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        modelBuilder.Entity<DictionaryRecordEntity>()
+            .Property(x => x.Data)
+            .HasColumnType("jsonb");
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
