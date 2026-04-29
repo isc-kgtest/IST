@@ -2,6 +2,7 @@
 @using IST.Contracts.Features.Dictionaries
 @using IST.Contracts.Features.Dictionaries.Commands
 @using IST.Shared.DTOs.Dictionaries
+@using IST.Core.Entities.Dictionaries.Enums
 
 @inject IDictionaryCommands _dictCommands
 @inject ISnackbar _snackbar
@@ -12,6 +13,12 @@
         <MudTextField T="string" @bind-Value="_request.Name" Label="Наименование" Required="true" />
         <MudTextField T="string" @bind-Value="_request.Slug" Label="Slug" Required="true" Class="mt-3" />
         <MudTextField T="string" @bind-Value="_request.Description" Label="Описание" Lines="2" Class="mt-3" />
+        <MudSelect T="DictionaryType" @bind-Value="_request.Type" Label="Тип" Class="mt-3">
+            @foreach (DictionaryType dt in Enum.GetValues<DictionaryType>())
+            {
+                <MudSelectItem Value="dt">@dt</MudSelectItem>
+            }
+        </MudSelect>
         <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-5" Spacing="2">
             <MudButton OnClick="Cancel" Variant="Variant.Text" Color="Color.Default" Disabled="_p">Отмена</MudButton>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_p">
@@ -32,7 +39,7 @@
     protected override void OnParametersSet()
     {
         if (Dictionary != null)
-            _request = new() { Id = Dictionary.Id, Name = Dictionary.Name, Slug = Dictionary.Slug, Description = Dictionary.Description };
+            _request = new() { Id = Dictionary.Id, Name = Dictionary.Name, Slug = Dictionary.Slug, Description = Dictionary.Description, Type = Dictionary.Type };
     }
 
     private void Cancel() => MudDialog?.Cancel();

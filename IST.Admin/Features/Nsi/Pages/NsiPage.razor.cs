@@ -3,6 +3,7 @@ using ActualLab.Fusion.Blazor;
 using IST.Contracts.Features.Dictionaries;
 using IST.Shared.DTOs.Dictionaries;
 using Microsoft.AspNetCore.Components;
+using IST.Core.Entities.Dictionaries.Enums;
 using MudBlazor;
 
 namespace IST.Admin.Features.Nsi.Pages;
@@ -38,7 +39,7 @@ public partial class NsiPage : ComputedStateComponent<NsiPage.Model>
         {
             var all = await _dictQueries.GetAllDictionariesAsync(cancellationToken);
             // Фильтруем только системные НСИ справочники
-            var nsi = all.Where(d => !d.IsDeleted && (d.Description?.Contains("НСИ") == true))
+            var nsi = all.Where(d => !d.IsDeleted && d.Type == DictionaryType.Nsi)
                          .OrderBy(d => d.Name)
                          .ToList();
 
