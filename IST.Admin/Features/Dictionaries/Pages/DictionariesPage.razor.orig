@@ -78,9 +78,9 @@ else
 		@* ── Структура полей ── *@
 		<MudTabPanel Text="Структура полей" Icon="@Icons.Material.Rounded.TableChart">
 			<MudDataGrid T="DictionaryFieldDto"
-						 Items="@(State.ValueOrDefault?.Detail?.Fields ?? new())"
+						 Items="@(_detail?.Fields ?? new())"
 						 Hover="true" Striped="true" Dense="true"
-						 Loading="_processing">
+						 Loading="_loadingDetail">
 				<ToolBarContent>
 					<MudText Typo="Typo.h6">Поля справочника</MudText>
 					<MudSpacer />
@@ -113,10 +113,10 @@ else
 		@* ── Записи ── *@
 		<MudTabPanel Text="Записи" Icon="@Icons.Material.Rounded.Storage">
 			<DictionaryRecordsGrid DictionaryId="@_selectedDictionary.Id"
-								   Fields="@(State.ValueOrDefault?.Detail?.Fields ?? new())"
-								   Records="@(State.ValueOrDefault?.Detail?.Records ?? new())"
-								   Loading="_processing"
-								   OnRefresh="RefreshAsync" />
+								   Fields="@(_detail?.Fields ?? new())"
+								   Records="@(_detail?.Records ?? new())"
+								   Loading="_loadingDetail"
+								   OnRefresh="LoadDetail" />
 		</MudTabPanel>
 	</MudTabs>
 }

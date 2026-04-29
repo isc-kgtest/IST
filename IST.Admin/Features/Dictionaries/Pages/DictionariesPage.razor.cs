@@ -13,19 +13,17 @@ namespace IST.Admin.Features.Dictionaries.Pages;
 
 public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.Model>
 {
-    public sealed record Model(List<DictionaryDto> Dictionaries)
+    public sealed record Model(List<DictionaryDto> Dictionaries, DictionaryDetailDto? Detail)
     {
-        public static readonly Model Empty = new(new List<DictionaryDto>());
+        public static readonly Model Empty = new(new List<DictionaryDto>(), null);
     }
 
     [Inject] private IDictionaryCommands _dictCommands { get; set; } = default!;
     [Inject] private IDictionaryQueries _dictQueries { get; set; } = default!;
 
     private bool _processing;
-    private bool _loadingDetail;
     private string _searchString = string.Empty;
     private DictionaryDto? _selectedDictionary;
-    private DictionaryDetailDto? _detail;
 
     private Func<DictionaryDto, bool> _filter => x =>
     {
@@ -44,7 +42,15 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
         try
         {
             var all = await _dictQueries.GetAllDictionariesAsync(cancellationToken);
-            return new Model(all.Where(d => !d.IsDeleted).OrderByDescending(d => d.CreatedAt).ToList());
+            var dictionaries = all.Where(d => !d.IsDeleted).OrderByDescending(d => d.CreatedAt).ToList();
+
+            DictionaryDetailDto? detail = null;
+            if (_selectedDictionary != null)
+            {
+                detail = await _dictQueries.GetDictionaryDetailAsync(_selectedDictionary.Id, cancellationToken);
+            }
+
+            return new Model(dictionaries, detail);
         }
         finally { _processing = false; }
     }
@@ -53,26 +59,10 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
 
     // ═══ Open detail ═══
 
-    private async Task OpenDictionary(DictionaryDto dict)
+    private void OpenDictionary(DictionaryDto dict)
     {
         _selectedDictionary = dict;
-        await LoadDetail();
-    }
-
-    private async Task LoadDetail()
-    {
-        if (_selectedDictionary == null) return;
-        _loadingDetail = true;
-        StateHasChanged();
-        try
-        {
-            _detail = await _dictQueries.GetDictionaryDetailAsync(_selectedDictionary.Id);
-        }
-        catch (Exception ex)
-        {
-            _snackbar.Add($"Ошибка загрузки: {ex.Message}", Severity.Error);
-        }
-        finally { _loadingDetail = false; StateHasChanged(); }
+        _ = State.Recompute();
     }
 
     // ═══ Create dictionary ═══
@@ -170,7 +160,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
         var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Добавить поле", parameters, options);
         var result = await dialogRef.Result;
-        if (!result.Canceled) await LoadDetail();
+        if (!result.Canceled) await RefreshAsync();
     }
 
     private async Task ShowEditFieldDialog(DictionaryFieldDto field)
@@ -188,7 +178,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
         var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Редактировать поле", parameters, options);
         var result = await dialogRef.Result;
-        if (!result.Canceled) await LoadDetail();
+        if (!result.Canceled) await RefreshAsync();
     }
 
     private async Task ShowDeleteFieldDialog(Guid fieldId, string fieldName)
@@ -226,7 +216,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
         try
         {
             var res = await _dictCommands.DeleteFieldAsync(new DeleteDictionaryFieldCommand(Session.Default, fieldId));
-            if (res.Status) { _snackbar.Add("Поле удалено", Severity.Success); await LoadDetail(); }
+            if (res.Status) { _snackbar.Add("Поле удалено", Severity.Success); await RefreshAsync(); }
             else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
         }
         catch (Exception ex) { _snackbar.Add($"Ошибка: {ex.Message}", Severity.Error); }

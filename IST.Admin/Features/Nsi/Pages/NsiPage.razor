@@ -14,47 +14,41 @@
 @if (_selectedDictionary == null)
 {
     @* Список НСИ справочников *@
-    <MudGrid>
-        @if (State.ValueOrDefault?.Dictionaries.Any() == true)
-        {
-            @foreach (var dict in State.ValueOrDefault.Dictionaries)
-            {
-                <MudItem xs="12" sm="6" md="4" lg="3">
-                    <MudCard Elevation="2" Class="h-100 d-flex flex-column">
-                        <MudCardHeader>
-                            <CardHeaderContent>
-                                <MudText Typo="Typo.h6">@dict.Name</MudText>
-                            </CardHeaderContent>
-                            <CardHeaderActions>
-                                <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Default" OnClick="@(() => OpenDictionary(dict))" />
-                            </CardHeaderActions>
-                        </MudCardHeader>
-                        <MudCardContent Class="flex-grow-1">
-                            <MudText Typo="Typo.body2">@dict.Description</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Полей: @dict.FieldCount</MudText>
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => OpenDictionary(dict))" FullWidth="true">
-                                Открыть
-                            </MudButton>
-                        </MudCardActions>
-                    </MudCard>
-                </MudItem>
-            }
-        }
-        else if (_processing)
-        {
-            <MudItem xs="12">
-                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-            </MudItem>
-        }
-        else
-        {
-            <MudItem xs="12">
-                <MudAlert Severity="Severity.Info">Системные справочники не найдены. Пожалуйста, убедитесь, что сидер отработал успешно.</MudAlert>
-            </MudItem>
-        }
-    </MudGrid>
+    <MudDataGrid T="DictionaryDto"
+                 Items="@(State.ValueOrDefault?.Dictionaries ?? new())"
+                 Hover="true" Striped="true" Dense="true"
+                 Filterable="true" SortMode="SortMode.Multiple"
+                 QuickFilter="@_filter"
+                 Loading="@_processing">
+        <ToolBarContent>
+            <MudText Typo="Typo.h6">Справочники НСИ</MudText>
+            <MudSpacer />
+            <MudTextField @bind-Value="_searchString"
+                          Placeholder="Поиск..."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          IconSize="Size.Medium"
+                          Class="mt-0 mr-4" Clearable="true" />
+            <MudTooltip Placement="Placement.Top" Text="Обновить">
+                <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="RefreshAsync" />
+            </MudTooltip>
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.Name" Title="Наименование" />
+            <PropertyColumn Property="x => x.Description" Title="Описание" />
+            <PropertyColumn Property="x => x.FieldCount" Title="Полей" />
+            <TemplateColumn Title="Действия" Filterable="false" Sortable="false">
+                <CellTemplate>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => OpenDictionary(context.Item))">
+                        Открыть
+                    </MudButton>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="DictionaryDto" PageSizeOptions="new int[] { 10, 25, 50 }" />
+        </PagerContent>
+    </MudDataGrid>
 }
 else
 {
@@ -64,16 +58,16 @@ else
         <MudText Typo="Typo.h5">@_selectedDictionary.Name</MudText>
     </div>
 
-    @if (_loadingDetail)
+    @if (_processing)
     {
         <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-4" />
     }
     
     <MudPaper Elevation="1" Class="pa-4">
         <DictionaryRecordsGrid DictionaryId="@_selectedDictionary.Id"
-                               Fields="@(_detail?.Fields ?? new())"
-                               Records="@(_detail?.Records ?? new())"
-                               Loading="_loadingDetail"
-                               OnRefresh="LoadDetail" />
+                               Fields="@(State.ValueOrDefault?.Detail?.Fields ?? new())"
+                               Records="@(State.ValueOrDefault?.Detail?.Records ?? new())"
+                               Loading="_processing"
+                               OnRefresh="RefreshAsync" />
     </MudPaper>
 }
