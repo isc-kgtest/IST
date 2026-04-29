@@ -74,6 +74,7 @@ public class DictionaryCommands : IDictionaryCommands
 
         entity.Name = command.Request.Name;
         entity.Description = command.Request.Description;
+        entity.Type = command.Request.Type;
         // Slug обычно не меняют, но если нужно:
         // entity.Slug = command.Slug;
 
