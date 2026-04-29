@@ -65,6 +65,12 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
         _ = State.Recompute();
     }
 
+    private void CloseDictionary()
+    {
+        _selectedDictionary = null;
+        _ = State.Recompute();
+    }
+
     // ═══ Create dictionary ═══
 
     private async Task ShowCreateDictionaryDialog()

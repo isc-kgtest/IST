@@ -54,7 +54,7 @@ else
 {
     @* Детальный просмотр записей выбранного НСИ *@
     <div class="d-flex align-center mb-4">
-        <MudIconButton Icon="@Icons.Material.Rounded.ArrowBack" OnClick="@(() => _selectedDictionary = null)" Class="mr-2" />
+        <MudIconButton Icon="@Icons.Material.Rounded.ArrowBack" OnClick="CloseDictionary" Class="mr-2" />
         <MudText Typo="Typo.h5">@_selectedDictionary.Name</MudText>
     </div>
 

@@ -60,4 +60,10 @@ public partial class NsiPage : ComputedStateComponent<NsiPage.Model>
         _selectedDictionary = dict;
         _ = State.Recompute();
     }
+
+    private void CloseDictionary()
+    {
+        _selectedDictionary = null;
+        _ = State.Recompute();
+    }
 }
