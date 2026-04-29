@@ -1,5 +1,6 @@
 using MemoryPack;
 using IST.Core.Entities.BaseEntities;
+using IST.Core.Entities.Dictionaries.Enums;
 
 namespace IST.Core.Entities.Dictionaries;
 
@@ -23,6 +24,9 @@ public partial class DictionaryEntity : BaseEntity
     /// </summary>
     [MemoryPackOrder(10)]
     public string Slug { get; set; } = string.Empty;
+
+    [MemoryPackOrder(11)]
+    public DictionaryType Type { get; set; } = DictionaryType.General;
 
     // Навигация
     public ICollection<DictionaryFieldEntity> Fields { get; set; } = new List<DictionaryFieldEntity>();
