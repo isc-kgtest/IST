@@ -1,6 +1,15 @@
 @inherits LayoutComponentBase
+@using IST.Admin.Auth
 
 <MudThemeProvider @ref="@_themeProvider" @bind-IsDarkMode="@_isDarkMode" Theme="MyCustomTheme" />
+
+<AuthorizeView>
+    <Authorized>
+        @* Реактивно отслеживает валидность Fusion-сессии. При logout/удалении/
+           stale cookie выкидывает на /api/auth/logout. Только для залогиненных. *@
+        <SessionWatcher />
+    </Authorized>
+</AuthorizeView>
 <MudDialogProvider />
 <MudSnackbarProvider />
 <MudPopoverProvider />

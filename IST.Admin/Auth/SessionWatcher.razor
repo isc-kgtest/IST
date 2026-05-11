@@ -1,0 +1,53 @@
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Blazor
+@using IST.Contracts.Features.Auth
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inherits ComputedStateComponent<bool>
+
+@inject SessionAccessor _session
+@inject IUserPresence _presence
+@inject AuthenticationStateProvider _authStateProvider
+@inject NavigationManager _navManager
+
+@* Невидимый компонент: подписан на IUserPresence для текущей сессии. Когда
+   сервер удаляет CallerContext (logout, delete user, password reset, ...),
+   <c>IsAuthenticatedAsync</c> инвалидируется и приходит false — компонент
+   делает forceLoad на /api/auth/logout, чтобы почистилась cookie. *@
+
+@code {
+    protected override ComputedState<bool>.Options GetStateOptions()
+        => new() { InitialValue = true, UpdateDelayer = FixedDelayer.Get(0) };
+
+    protected override async Task<bool> ComputeState(CancellationToken cancellationToken)
+    {
+        var session = await _session.GetAsync(cancellationToken);
+
+        // Случай 1: cookie есть, но без PrimarySid (старая, до новой архитектуры) —
+        // надо переустановить сессию через logout+login.
+        if (_session.IsStaleCookie)
+            return false;
+
+        // Случай 2: пользователь вовсе не залогинен — не наша забота.
+        if (session == Session.Default)
+            return true;
+
+        // Случай 3: подписываемся на серверный presence — реактивно отвалится
+        // при удалении/деактивации/смене пароля.
+        return await _presence.IsAuthenticatedAsync(session, cancellationToken);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (State.ValueOrDefault) return;
+
+        // Если ситуация "authenticated, но сессия невалидна" — пора в logout.
+        // forceLoad: true заставит ServerAuthenticationStateProvider перечитать
+        // cookie на следующем заходе.
+        var auth = await _authStateProvider.GetAuthenticationStateAsync();
+        if (auth.User.Identity?.IsAuthenticated == true)
+            _navManager.NavigateTo("/api/auth/logout", forceLoad: true);
+    }
+}
