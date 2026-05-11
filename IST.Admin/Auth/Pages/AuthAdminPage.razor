@@ -13,6 +13,7 @@
 
 @inject IAuthCommands _authCommands
 @inject IAuthQueries _authQueries
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <PageTitle>Панель управления доступом</PageTitle>
 
@@ -281,7 +282,7 @@
 
 		try
 		{
-			var res = await _authCommands.DeleteUserAsync(new DeleteUserCommand(Session.Default, id));
+			var res = await _authCommands.DeleteUserAsync(new DeleteUserCommand(await _session.GetAsync(), id));
 			if (res.Status)
 			{
 				_snackbar.Add($"Пользователь удалён: {res.Data}", Severity.Success);
@@ -371,7 +372,7 @@
 
 		try
 		{
-			var res = await _authCommands.DeleteRoleAsync(new DeleteRoleCommand(Session.Default, id));
+			var res = await _authCommands.DeleteRoleAsync(new DeleteRoleCommand(await _session.GetAsync(), id));
 			if (res.Status)
 			{
 				_snackbar.Add($"Роль удалена: {res.Data}", Severity.Success);

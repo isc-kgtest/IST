@@ -6,6 +6,7 @@
 
 @inject IAuthCommands _authCommands
 @inject IAuthQueries _authQueries
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <MudPaper Elevation="0" Style="min-width: 420px;">
     @if (_loading)
@@ -165,7 +166,7 @@
 
         try
         {
-            var command = new UpdateUserCommand(Session.Default, _request);
+            var command = new UpdateUserCommand(await _session.GetAsync(), _request);
             var res = await _authCommands.UpdateUserAsync(command);
 
             if (res.Status && res.Data != null)

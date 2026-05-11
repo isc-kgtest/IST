@@ -5,6 +5,7 @@
 
 @inject IAuthCommands _authCommands
 @inject IAuthQueries _authQueries
+@inject IST.Admin.Auth.SessionAccessor _session
 
 @if (_loading)
 {
@@ -175,11 +176,12 @@ else
 
             var successCount = 0;
             var errorCount = 0;
+            var session = await _session.GetAsync();
 
             foreach (var item in toAssign)
             {
                 var command = new CreateUserRoleCommand(
-                    Session.Default,
+                    session,
                     new CreateUserRoleRequest
                     {
                         UserId = UserId,
@@ -202,7 +204,7 @@ else
 
             foreach (var item in toRevoke)
             {
-                var command = new DeleteUserRoleCommand(Session.Default, UserId, item.UserRoleId!.Value);
+                var command = new DeleteUserRoleCommand(session, UserId, item.UserRoleId!.Value);
                 var res = await _authCommands.DeleteUserRoleAsync(command);
                 if (res.Status)
                 {

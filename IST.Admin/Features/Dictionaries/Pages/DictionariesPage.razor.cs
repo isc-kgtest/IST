@@ -20,6 +20,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
 
     [Inject] private IDictionaryCommands _dictCommands { get; set; } = default!;
     [Inject] private IDictionaryQueries _dictQueries { get; set; } = default!;
+    [Inject] private IST.Admin.Auth.SessionAccessor _session { get; set; } = default!;
 
     private bool _processing;
     private string _searchString = string.Empty;
@@ -142,7 +143,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
 
         try
         {
-            var res = await _dictCommands.DeleteDictionaryAsync(new DeleteDictionaryCommand(Session.Default, id));
+            var res = await _dictCommands.DeleteDictionaryAsync(new DeleteDictionaryCommand(await _session.GetAsync(), id));
             if (res.Status) { _snackbar.Add($"Справочник удалён", Severity.Success); await RefreshAsync(); }
             else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
         }
@@ -221,7 +222,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
 
         try
         {
-            var res = await _dictCommands.DeleteFieldAsync(new DeleteDictionaryFieldCommand(Session.Default, fieldId));
+            var res = await _dictCommands.DeleteFieldAsync(new DeleteDictionaryFieldCommand(await _session.GetAsync(), fieldId));
             if (res.Status) { _snackbar.Add("Поле удалено", Severity.Success); await RefreshAsync(); }
             else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
         }
