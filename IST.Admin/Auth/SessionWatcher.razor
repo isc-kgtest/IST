@@ -2,52 +2,59 @@
 @using ActualLab.Fusion.Blazor
 @using IST.Contracts.Features.Auth
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.JSInterop
 
 @inherits ComputedStateComponent<bool>
 
-@inject SessionAccessor _session
 @inject IUserPresence _presence
-@inject AuthenticationStateProvider _authStateProvider
-@inject NavigationManager _navManager
+@inject SessionAccessor _session
 
-@* Невидимый компонент: подписан на IUserPresence для текущей сессии. Когда
-   сервер удаляет CallerContext (logout, delete user, password reset, ...),
-   <c>IsAuthenticatedAsync</c> инвалидируется и приходит false — компонент
-   делает forceLoad на /api/auth/logout, чтобы почистилась cookie. *@
+@* Невидимый компонент. Подписывается на серверный IUserPresence через Fusion
+   compute-graph: когда админ снимает сессию текущего пользователя
+   (деактивация, удаление, смена ролей, ресет пароля) — сервер инвалидирует
+   IsAuthenticatedAsync, инвалидация прилетает на клиента, мы видим false
+   и через authHelper.logout вылогиниваемся. *@
 
 @code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private bool _alreadyKicked;
+
     protected override ComputedState<bool>.Options GetStateOptions()
         => new() { InitialValue = true, UpdateDelayer = FixedDelayer.Get(0) };
 
     protected override async Task<bool> ComputeState(CancellationToken cancellationToken)
     {
-        var session = await _session.GetAsync(cancellationToken);
-
-        // Случай 1: cookie есть, но без PrimarySid (старая, до новой архитектуры) —
-        // надо переустановить сессию через logout+login.
-        if (_session.IsStaleCookie)
-            return false;
-
-        // Случай 2: пользователь вовсе не залогинен — не наша забота.
-        if (session == Session.Default)
+        try
+        {
+            var session = await _session.GetAsync(cancellationToken);
+            return await _presence.IsAuthenticatedAsync(session, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Нормальная отмена при навигации (forceLoad после login,
+            // переход между circuit'ами). Возвращаем true чтобы НЕ
+            // триггернуть ложный logout.
             return true;
-
-        // Случай 3: подписываемся на серверный presence — реактивно отвалится
-        // при удалении/деактивации/смене пароля.
-        return await _presence.IsAuthenticatedAsync(session, cancellationToken);
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
 
-        if (State.ValueOrDefault) return;
+        if (_alreadyKicked) return;
+        if (!State.HasValue) return;
+        if (State.Value) return; // сервер подтверждает сессию — всё ок
 
-        // Если ситуация "authenticated, но сессия невалидна" — пора в logout.
-        // forceLoad: true заставит ServerAuthenticationStateProvider перечитать
-        // cookie на следующем заходе.
-        var auth = await _authStateProvider.GetAuthenticationStateAsync();
-        if (auth.User.Identity?.IsAuthenticated == true)
-            _navManager.NavigateTo("/api/auth/logout", forceLoad: true);
+        // Сервер сказал false. Если cookie на клиенте всё ещё помечает нас
+        // как авторизованных — значит сессию принудительно сняли, и мы
+        // обязаны выйти из системы.
+        if (AuthState is null) return;
+        var auth = await AuthState;
+        if (auth.User.Identity?.IsAuthenticated != true) return;
+
+        _alreadyKicked = true;
+        await _js.InvokeVoidAsync("authHelper.logout");
     }
 }

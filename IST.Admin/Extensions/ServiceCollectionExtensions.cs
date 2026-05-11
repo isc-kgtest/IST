@@ -1,4 +1,5 @@
 using ActualLab.Fusion;
+using ActualLab.Fusion.Authentication;
 using ActualLab.Fusion.Blazor;
 using ActualLab.Rpc;
 using IST.Admin.Auth;
@@ -78,8 +79,13 @@ public static class ServiceCollectionExtensions
         var rpcUrl = config["RpcServer:Url"] ?? "ws://localhost:5000";
         fusion.Rpc.AddWebSocketClient(rpcUrl);
 
-        // Fusion-клиенты для всех RPC-сервисов. IAuth (встроенный Fusion-auth)
-        // НЕ используем — у нас своя сессионная модель через ICurrentUserStore.
+        // КРИТИЧНО: AddAuthClient регистрирует Fusion ISessionResolver. Без него
+        // RPC-pipeline подмешивает в каждый вызов Session.Default или случайную
+        // "~"-сессию, и сервер не находит CallerContext в store по той сессии,
+        // которую мы кладём в cookie при логине.
+        fusion.AddAuthClient();
+
+        // Fusion-клиенты для всех RPC-сервисов.
         fusion.AddClient<IUserPresence>();
 
         fusion.AddClient<IAuthQueries>();
