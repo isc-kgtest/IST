@@ -5,7 +5,7 @@
 @using MudBlazor
 
 @inject IOrganizationCommands _commands
-@inject Session _session
+@inject ISessionResolver _sessionResolver
 
 <MudStack Spacing="3">
     <MudTextField @bind-Value="_code" Label="Код (короткий, латиница)" Variant="Variant.Outlined" Required="true" />
@@ -63,8 +63,9 @@
         _error = null;
         try
         {
+            var session = await _sessionResolver.GetSession();
             var cmd = new SaveNodeTypeCommand(
-                Session: _session,
+                Session: session,
                 Id: NodeType?.Id,
                 Code: _code, Name: _name, Description: _description,
                 Level: _level, SortOrder: _sortOrder, Icon: _icon);

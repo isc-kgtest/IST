@@ -13,7 +13,7 @@
 
 @inject IOrganizationQueries _queries
 @inject IOrganizationCommands _commands
-@inject Session _session
+@inject ISessionResolver _sessionResolver
 
 <PageTitle>Оргструктура</PageTitle>
 
@@ -135,7 +135,8 @@
         if (!ok) return;
         try
         {
-            var res = await _commands.DeleteNodeAsync(new DeleteNodeCommand(_session, node.Id));
+            var session = await _sessionResolver.GetSession();
+            var res = await _commands.DeleteNodeAsync(new DeleteNodeCommand(session, node.Id));
             if (res.Status) { _snackbar.Add("Узел удалён.", Severity.Success); await RefreshAsync(); }
             else _snackbar.Add(res.StatusMessage ?? "Ошибка.", Severity.Warning);
         }
@@ -163,7 +164,8 @@
         if (!ok) return;
         try
         {
-            var res = await _commands.DeleteNodeTypeAsync(new DeleteNodeTypeCommand(_session, type.Id));
+            var session = await _sessionResolver.GetSession();
+            var res = await _commands.DeleteNodeTypeAsync(new DeleteNodeTypeCommand(session, type.Id));
             if (res.Status) { _snackbar.Add("Тип удалён.", Severity.Success); await RefreshAsync(); }
             else _snackbar.Add(res.StatusMessage ?? "Ошибка.", Severity.Warning);
         }

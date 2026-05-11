@@ -15,7 +15,7 @@
 
 @inject IAuditQueries _queries
 @inject IAuthQueries _authQueries
-@inject Session _session
+@inject ISessionResolver _sessionResolver
 
 <PageTitle>Журнал безопасности</PageTitle>
 
@@ -201,9 +201,10 @@ else
                 OnlyFailures = _onlyFailures ? true : null,
             };
 
-            var page = await _queries.GetAuditPageAsync(_session, filter, _skip, _take, cancellationToken);
-            var types = await _queries.GetEventTypesAsync(_session, cancellationToken);
-            var me = await _authQueries.WhoAmIAsync(_session, cancellationToken);
+            var session = await _sessionResolver.GetSession();
+            var page = await _queries.GetAuditPageAsync(session, filter, _skip, _take, cancellationToken);
+            var types = await _queries.GetEventTypesAsync(session, cancellationToken);
+            var me = await _authQueries.WhoAmIAsync(session, cancellationToken);
             return new Model { Page = page, EventTypes = types, Me = me };
         }
         finally
