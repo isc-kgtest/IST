@@ -10,6 +10,7 @@
 @inject ISnackbar _snackbar
 @inject IDialogService _dialogService
 @inject IJSRuntime _js
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <MudDataGrid T="DictionaryRecordDto"
              Items="@Records"
@@ -113,7 +114,7 @@
     {
         try
         {
-            var res = await _dictCommands.DeleteRecordAsync(new DeleteDictionaryRecordCommand(Session.Default, recordId));
+            var res = await _dictCommands.DeleteRecordAsync(new DeleteDictionaryRecordCommand(await _session.GetAsync(), recordId));
             if (res.Status) { _snackbar.Add("Запись удалена", Severity.Success); await OnRefresh.InvokeAsync(); }
             else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
         }
@@ -141,7 +142,7 @@
     {
         try
         {
-            var res = await _dictCommands.ExportRecordsAsync(new ExportDictionaryRecordsCommand(Session.Default, DictionaryId, format));
+            var res = await _dictCommands.ExportRecordsAsync(new ExportDictionaryRecordsCommand(await _session.GetAsync(), DictionaryId, format));
             if (res.Status && res.Data != null)
             {
                 var base64 = Convert.ToBase64String(res.Data.FileContent);

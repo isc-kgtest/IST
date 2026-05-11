@@ -8,6 +8,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddMudServices();
+builder.Services.AddScoped<IST.Admin.Services.LanguageService>();
 
 // 2. Custom Configurations
 builder.Services.AddAuthenticationAndAuthorization(builder.Environment);

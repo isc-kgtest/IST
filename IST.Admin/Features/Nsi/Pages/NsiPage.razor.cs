@@ -3,23 +3,31 @@ using ActualLab.Fusion.Blazor;
 using IST.Contracts.Features.Dictionaries;
 using IST.Shared.DTOs.Dictionaries;
 using Microsoft.AspNetCore.Components;
+using IST.Core.Entities.Dictionaries.Enums;
 using MudBlazor;
 
 namespace IST.Admin.Features.Nsi.Pages;
 
 public partial class NsiPage : ComputedStateComponent<NsiPage.Model>
 {
-    public sealed record Model(List<DictionaryDto> Dictionaries)
+    public sealed record Model(List<DictionaryDto> Dictionaries, DictionaryDetailDto? Detail)
     {
-        public static readonly Model Empty = new(new List<DictionaryDto>());
+        public static readonly Model Empty = new(new List<DictionaryDto>(), null);
     }
 
     [Inject] private IDictionaryQueries _dictQueries { get; set; } = default!;
 
     private bool _processing;
-    private bool _loadingDetail;
     private DictionaryDto? _selectedDictionary;
-    private DictionaryDetailDto? _detail;
+    private string _searchString = string.Empty;
+
+    private Func<DictionaryDto, bool> _filter => x =>
+    {
+        if (string.IsNullOrWhiteSpace(_searchString)) return true;
+        if (x.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) return true;
+        if (x.Description?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) == true) return true;
+        return false;
+    };
 
     protected override ComputedState<Model>.Options GetStateOptions()
         => new() { InitialValue = Model.Empty, UpdateDelayer = FixedDelayer.Get(0) };
@@ -31,33 +39,32 @@ public partial class NsiPage : ComputedStateComponent<NsiPage.Model>
         {
             var all = await _dictQueries.GetAllDictionariesAsync(cancellationToken);
             // Фильтруем только системные НСИ справочники
-            var nsi = all.Where(d => !d.IsDeleted && (d.Description?.Contains("НСИ") == true))
+            var nsi = all.Where(d => !d.IsDeleted && d.Type == DictionaryType.Nsi)
                          .OrderBy(d => d.Name)
                          .ToList();
-            return new Model(nsi);
+
+            DictionaryDetailDto? detail = null;
+            if (_selectedDictionary != null)
+            {
+                detail = await _dictQueries.GetDictionaryDetailAsync(_selectedDictionary.Id, cancellationToken);
+            }
+
+            return new Model(nsi, detail);
         }
         finally { _processing = false; }
     }
 
-    private async Task OpenDictionary(DictionaryDto dict)
+    private async Task RefreshAsync() => await State.Recompute();
+
+    private void OpenDictionary(DictionaryDto dict)
     {
         _selectedDictionary = dict;
-        await LoadDetail();
+        _ = State.Recompute();
     }
 
-    private async Task LoadDetail()
+    private void CloseDictionary()
     {
-        if (_selectedDictionary == null) return;
-        
-        _loadingDetail = true;
-        try
-        {
-            _detail = await _dictQueries.GetDictionaryDetailAsync(_selectedDictionary.Id);
-            StateHasChanged();
-        }
-        finally
-        {
-            _loadingDetail = false;
-        }
+        _selectedDictionary = null;
+        _ = State.Recompute();
     }
 }

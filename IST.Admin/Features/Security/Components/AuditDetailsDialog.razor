@@ -1,0 +1,38 @@
+@using IST.Shared.DTOs.Audit
+@using MudBlazor
+
+<MudStack Spacing="2">
+    <MudText Typo="Typo.body2"><b>Время:</b> @Item.Timestamp.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</MudText>
+    <MudText Typo="Typo.body2"><b>Тип события:</b> @Item.EventType</MudText>
+    <MudText Typo="Typo.body2"><b>Успех:</b> @(Item.Success ? "да" : "нет")</MudText>
+
+    @if (Item.ActorLogin is not null || Item.ActorUserId is not null)
+    {
+        <MudText Typo="Typo.body2"><b>Кто:</b> @Item.ActorLogin (@Item.ActorUserId)</MudText>
+    }
+    @if (Item.TargetLogin is not null || Item.TargetUserId is not null)
+    {
+        <MudText Typo="Typo.body2"><b>Над кем:</b> @Item.TargetLogin (@Item.TargetUserId)</MudText>
+    }
+    @if (!string.IsNullOrEmpty(Item.IpAddress))
+    {
+        <MudText Typo="Typo.body2"><b>IP:</b> @Item.IpAddress</MudText>
+    }
+    @if (!string.IsNullOrEmpty(Item.UserAgent))
+    {
+        <MudText Typo="Typo.body2"><b>User-Agent:</b> @Item.UserAgent</MudText>
+    }
+    @if (!string.IsNullOrEmpty(Item.Message))
+    {
+        <MudText Typo="Typo.body2"><b>Сообщение:</b> @Item.Message</MudText>
+    }
+    @if (!string.IsNullOrEmpty(Item.DetailsJson))
+    {
+        <MudText Typo="Typo.body2"><b>Детали:</b></MudText>
+        <pre style="background: var(--mud-palette-background); padding: 8px; border-radius: 4px; overflow: auto;">@Item.DetailsJson</pre>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public AuditLogEntryDto Item { get; set; } = null!;
+}

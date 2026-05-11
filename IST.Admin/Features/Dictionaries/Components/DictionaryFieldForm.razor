@@ -6,6 +6,7 @@
 
 @inject IDictionaryCommands _dictCommands
 @inject ISnackbar _snackbar
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <MudPaper Style="min-width:360px;" Elevation="0">
     <EditForm Model="@_request" OnValidSubmit="SubmitForm">
@@ -63,7 +64,7 @@
         _p = true;
         try
         {
-            var res = await _dictCommands.SaveFieldAsync(new SaveDictionaryFieldCommand(Session.Default, DictionaryId, _request));
+            var res = await _dictCommands.SaveFieldAsync(new SaveDictionaryFieldCommand(await _session.GetAsync(), DictionaryId, _request));
             if (res.Status && res.Data != null)
             {
                 _snackbar.Add($"Поле сохранено: {res.Data.DisplayName}", Severity.Success);

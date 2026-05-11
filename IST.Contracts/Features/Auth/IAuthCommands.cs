@@ -9,6 +9,7 @@ public interface IAuthCommands : ICommandService, IComputeService
 {
     // Auth
     Task<ResponseDTO<SessionUserDto>> LoginAsync(LoginCommand command, CancellationToken cancellationToken = default);
+    Task<ResponseDTO<string>> LogoutAsync(LogoutCommand command, CancellationToken cancellationToken = default);
 
     //Users
     Task<ResponseDTO<UserResponseDTO>> CreateUserAsync(CreateUserCommand command, CancellationToken cancellationToken = default);
@@ -28,4 +29,7 @@ public interface IAuthCommands : ICommandService, IComputeService
     Task<ResponseDTO<UserRoleResponseDTO>> UpdateUserRoleAsync(UpdateUserRoleCommand command, CancellationToken cancellationToken = default);
 
     Task<ResponseDTO<string>> DeleteUserRoleAsync(DeleteUserRoleCommand command, CancellationToken cancellationToken = default);
+
+    // Привилегии ролей
+    Task<ResponseDTO<string>> UpdateRolePermissionsAsync(UpdateRolePermissionsCommand command, CancellationToken cancellationToken = default);
 }

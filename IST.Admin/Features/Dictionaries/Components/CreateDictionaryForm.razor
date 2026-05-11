@@ -6,6 +6,7 @@
 
 @inject IDictionaryCommands _dictCommands
 @inject ISnackbar _snackbar
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <MudPaper Style="min-width:480px;" Elevation="0">
     <EditForm Model="@_request" OnValidSubmit="SubmitForm">
@@ -14,6 +15,12 @@
         <MudTextField T="string" @bind-Value="_request.Slug" Label="Slug (системный код)" Required="true" Class="mt-3"
                       HelperText="Латиница, snake_case. Пример: product_types" />
         <MudTextField T="string" @bind-Value="_request.Description" Label="Описание" Lines="2" Class="mt-3" />
+        <MudSelect T="DictionaryType" @bind-Value="_request.Type" Label="Тип" Class="mt-3">
+            @foreach (DictionaryType dt in Enum.GetValues<DictionaryType>())
+            {
+                <MudSelectItem Value="dt">@dt</MudSelectItem>
+            }
+        </MudSelect>
 
         <MudDivider Class="my-4" />
         <MudText Typo="Typo.subtitle1" Class="mb-2">Структура полей</MudText>
@@ -88,7 +95,7 @@
         _p = true;
         try
         {
-            var res = await _dictCommands.CreateDictionaryAsync(new CreateDictionaryCommand(Session.Default, _request));
+            var res = await _dictCommands.CreateDictionaryAsync(new CreateDictionaryCommand(await _session.GetAsync(), _request));
             if (res.Status && res.Data != null)
             {
                 _snackbar.Add($"Справочник создан: {res.Data.Name}", Severity.Success);

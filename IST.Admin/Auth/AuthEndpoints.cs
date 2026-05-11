@@ -1,8 +1,8 @@
+using ActualLab.Fusion;
 using IST.Contracts.Features.Auth;
 using IST.Contracts.Features.Auth.Commands;
+using IST.Core.Entities.Auth;
 using IST.Shared.DTOs.Auth;
-using IST.Shared.Enums;
-using IST.Shared.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using System.Security.Claims;
@@ -10,17 +10,30 @@ using System.Security.Claims;
 namespace IST.Admin.Auth;
 
 /// <summary>
-/// MinimalAPI endpoints для Login/Logout.
-/// Blazor Server InteractiveServer не может вызвать HttpContext.SignInAsync
-/// из SignalR-контекста, поэтому login/logout реализованы как HTTP-endpoints.
+/// Minimal API endpoints для логина/логаута.
+/// <para>
+/// <c>Session</c> создаётся прямо здесь как UUID. Этот же id мы кладём в claim
+/// <see cref="ClaimTypes.PrimarySid"/> в cookie и передаём в <c>LoginCommand</c>
+/// на сервер. Сервер через <c>ICurrentUserStore.Set</c> привязывает к этому
+/// Session-id <c>CallerContext</c>. Все следующие RPC-вызовы клиента берут
+/// Session из cookie (через <c>SessionAccessor</c>) и сервер находит юзера
+/// прямым lookup'ом в памяти — без Fusion <c>IAuth.GetUser</c>.
+/// </para>
 /// </summary>
 public static class AuthEndpoints
 {
     public static void MapAuthEndpoints(this WebApplication app)
     {
         app.MapPost("/api/auth/login", (Delegate)HandleLogin)
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .RequireRateLimiting("auth")
+            .DisableAntiforgery();
 
+        app.MapPost("/api/auth/logout", (Delegate)HandleLogout)
+            .AllowAnonymous()
+            .DisableAntiforgery();
+
+        // GET для прямой навигации по ссылке-логауту в браузере.
         app.MapGet("/api/auth/logout", (Delegate)HandleLogout)
             .AllowAnonymous();
     }
@@ -28,82 +41,104 @@ public static class AuthEndpoints
     private static async Task<IResult> HandleLogin(
         HttpContext httpContext,
         LoginRequest request,
-        IAuthCommands authCommands)
+        IAuthCommands authCommands,
+        ILoggerFactory loggerFactory)
     {
-        var command = new LoginCommand(
-            ActualLab.Fusion.Session.Default,
-            request.Login,
-            request.Password);
+        var log = loggerFactory.CreateLogger("AuthEndpoints");
 
-        var res = await authCommands.LoginAsync(command);
+        // 1) Новый Session-id = новый UUID. Один и тот же для RPC и для cookie.
+        var session = new Session(Guid.NewGuid().ToString("N"));
+        log.LogInformation("HandleLogin: created Session.Id='{Sid}' for login='{Login}'",
+            session.Id, request.Login);
 
-        if (res.Status)
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString();
+        var ua = httpContext.Request.Headers.UserAgent.ToString();
+
+        // 2) RPC-команда: сервер проверяет пароль и сохраняет CallerContext по Session.
+        var command = new LoginCommand(session, request.Login, request.Password)
         {
-            var user = res.Data;
+            IpAddress = ip,
+            UserAgent = string.IsNullOrEmpty(ua) ? null : ua,
+            RequiredPermission = Permissions.AdminAccess,
+        };
+        var res = await authCommands.LoginAsync(command);
+        log.LogInformation("HandleLogin: LoginAsync returned Status={Status} for Session.Id='{Sid}'",
+            res.Status, session.Id);
 
-            var newSessionId = Guid.NewGuid();
-
-            var userSession = new UserSession
-            {
-                UserId = user.Id,
-                SessionId = newSessionId,
-                Login = user.Login,
-                FullName = user.FullName,
-                Roles = user?.Roles
-            };
-
-            var authClaims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.NameIdentifier, userSession.UserId.ToString()),
-                    new Claim(ClaimTypes.Name, userSession.Login),
-                    new Claim(ClaimTypes.Surname, userSession.FullName),
-                    new Claim(ClaimTypes.PrimarySid, newSessionId.ToString())
-                };
-
-            foreach (var userRole in userSession.Roles)
-            {
-                authClaims.Add(new Claim(ClaimTypes.Role, userRole));
-            }
-
-            var claimsIdentity = new ClaimsIdentity(authClaims, CookieAuthenticationDefaults.AuthenticationScheme);
-            var authProperties = new AuthenticationProperties { IsPersistent = true };
-
-            await httpContext.SignInAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                new ClaimsPrincipal(claimsIdentity),
-                authProperties);
-
-            //// --- ДИАГНОСТИЧЕСКОЕ ЛОГИРОВАНИЕ ---
-            //// Проверяем, был ли добавлен заголовок Set-Cookie в ответ сервера.
-            //var setCookieHeader = httpContext.Response.Headers.SetCookie.ToString();
-            //logger.LogWarning("Set-Cookie header after SignInAsync: '{Header}'", string.IsNullOrEmpty(setCookieHeader) ? "EMPTY" : setCookieHeader);
-            //// --- КОНЕЦ ДИАГНОСТИКИ ---
-
+        if (!res.Status || res.Data is null)
+        {
             return Results.Ok(new
             {
-                Status = true,
+                Status = false,
                 StatusCode = res.StatusCode,
-                StatusMessage = "Вход успешно выполнен."
+                StatusMessage = res.StatusMessage
             });
         }
 
+        // 3) Выписываем cookie с PrimarySid = session.Id (привязка cookie → Session).
+        var user = res.Data;
+        var authClaims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Login),
+            new(ClaimTypes.Surname, user.FullName),
+            new(ClaimTypes.PrimarySid, session.Id),
+        };
+        if (user.Roles is { Count: > 0 })
+            foreach (var role in user.Roles)
+                authClaims.Add(new Claim(ClaimTypes.Role, role));
+
+        var claimsIdentity = new ClaimsIdentity(
+            authClaims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var authProperties = new AuthenticationProperties { IsPersistent = true };
+
+        await httpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            new ClaimsPrincipal(claimsIdentity),
+            authProperties);
+
         return Results.Ok(new
         {
-            Status = false,
+            Status = true,
             StatusCode = res.StatusCode,
-            StatusMessage = res.StatusMessage
+            StatusMessage = "Вход успешно выполнен."
         });
     }
 
-    private static async Task<IResult> HandleLogout(HttpContext httpContext)
+    private static async Task<IResult> HandleLogout(
+        HttpContext httpContext,
+        IAuthCommands authCommands)
     {
+        // Достаём Session-id из cookie и снимаем CallerContext на сервере.
+        var sid = httpContext.User.FindFirst(ClaimTypes.PrimarySid)?.Value;
+        if (!string.IsNullOrEmpty(sid))
+        {
+            try
+            {
+                await authCommands.LogoutAsync(new LogoutCommand(new Session(sid)));
+            }
+            catch
+            {
+                // Логаут идемпотентен — даже если RPC недоступен, куки чистим.
+            }
+        }
+
         await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        httpContext.Response.Cookies.Delete("ISC.Auth", new CookieOptions
+        {
+            Path = "/",
+            HttpOnly = true,
+            SameSite = SameSiteMode.Lax,
+            Secure = httpContext.Request.IsHttps,
+        });
+
+        httpContext.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+        httpContext.Response.Headers.Pragma = "no-cache";
+
         return Results.Redirect("/login");
     }
 }
 
-/// <summary>Тело запроса login-endpoint'а.</summary>
 public record LoginRequest(string Login, string Password);
-
-/// <summary>Ответ login-endpoint'а.</summary>
 public record LoginResponse(bool Success, string Message, int StatusCode);

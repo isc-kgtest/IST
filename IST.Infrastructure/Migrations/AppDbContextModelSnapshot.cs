@@ -92,6 +92,120 @@ namespace IST.Infrastructure.Migrations
                     b.ToTable("_Operations");
                 });
 
+            modelBuilder.Entity("IST.Core.Entities.Audit.SecurityAuditLogEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorLogin")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DetailsJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TargetLogin")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("TargetUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId")
+                        .HasDatabaseName("ix_security_audit_logs_actor_user");
+
+                    b.HasIndex("TargetUserId")
+                        .HasDatabaseName("ix_security_audit_logs_target_user");
+
+                    b.HasIndex("Timestamp")
+                        .HasDatabaseName("ix_security_audit_logs_timestamp");
+
+                    b.HasIndex("EventType", "Timestamp")
+                        .HasDatabaseName("ix_security_audit_logs_event_type_timestamp");
+
+                    b.ToTable("security_audit_logs", "access_control");
+                });
+
+            modelBuilder.Entity("IST.Core.Entities.Auth.PermissionEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_permissions_code_unique")
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("permissions", "access_control");
+                });
+
             modelBuilder.Entity("IST.Core.Entities.Auth.RoleEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -145,6 +259,51 @@ namespace IST.Infrastructure.Migrations
                             IsDeleted = false,
                             Name = "admin"
                         });
+                });
+
+            modelBuilder.Entity("IST.Core.Entities.Auth.RolePermissionEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("PermissionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PermissionId");
+
+                    b.HasIndex("RoleId", "PermissionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_role_permissions_role_permission_unique")
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("role_permissions", "access_control");
                 });
 
             modelBuilder.Entity("IST.Core.Entities.Auth.UserEntity", b =>
@@ -379,6 +538,9 @@ namespace IST.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -485,6 +647,156 @@ namespace IST.Infrastructure.Migrations
                     b.ToTable("DictionaryRecords");
                 });
 
+            modelBuilder.Entity("IST.Core.Entities.Organization.OrganizationNodeEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Depth")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("NodeTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ParentNodeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NodeTypeId");
+
+                    b.HasIndex("ParentNodeId");
+
+                    b.HasIndex("Path");
+
+                    b.ToTable("nodes", "org");
+                });
+
+            modelBuilder.Entity("IST.Core.Entities.Organization.OrganizationNodeTypeEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("node_types", "org");
+                });
+
+            modelBuilder.Entity("IST.Core.Entities.Auth.RolePermissionEntity", b =>
+                {
+                    b.HasOne("IST.Core.Entities.Auth.PermissionEntity", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("IST.Core.Entities.Auth.RoleEntity", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("IST.Core.Entities.Auth.UserRolesEntity", b =>
                 {
                     b.HasOne("IST.Core.Entities.Auth.RoleEntity", "Role")
@@ -526,8 +838,33 @@ namespace IST.Infrastructure.Migrations
                     b.Navigation("Dictionary");
                 });
 
+            modelBuilder.Entity("IST.Core.Entities.Organization.OrganizationNodeEntity", b =>
+                {
+                    b.HasOne("IST.Core.Entities.Organization.OrganizationNodeTypeEntity", "NodeType")
+                        .WithMany("Nodes")
+                        .HasForeignKey("NodeTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("IST.Core.Entities.Organization.OrganizationNodeEntity", "ParentNode")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentNodeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("NodeType");
+
+                    b.Navigation("ParentNode");
+                });
+
+            modelBuilder.Entity("IST.Core.Entities.Auth.PermissionEntity", b =>
+                {
+                    b.Navigation("RolePermissions");
+                });
+
             modelBuilder.Entity("IST.Core.Entities.Auth.RoleEntity", b =>
                 {
+                    b.Navigation("RolePermissions");
+
                     b.Navigation("UserRoles");
                 });
 
@@ -541,6 +878,16 @@ namespace IST.Infrastructure.Migrations
                     b.Navigation("Fields");
 
                     b.Navigation("Records");
+                });
+
+            modelBuilder.Entity("IST.Core.Entities.Organization.OrganizationNodeEntity", b =>
+                {
+                    b.Navigation("Children");
+                });
+
+            modelBuilder.Entity("IST.Core.Entities.Organization.OrganizationNodeTypeEntity", b =>
+                {
+                    b.Navigation("Nodes");
                 });
 #pragma warning restore 612, 618
         }

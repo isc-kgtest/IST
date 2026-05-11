@@ -1,0 +1,77 @@
+@using IST.Contracts.Features.Organization
+@using IST.Shared.DTOs.Organization
+@using MudBlazor
+
+@inject IOrganizationQueries _queries
+
+@* Универсальный пикер узла оргструктуры. Показывает плоский список всех
+   узлов, форматированный как «Кыргызстан → Чуй → Бишкек», с поиском. *@
+
+<MudAutocomplete T="Guid?"
+                 Value="@Value"
+                 ValueChanged="@OnValueChanged"
+                 Label="@Label"
+                 Variant="Variant.Outlined"
+                 SearchFunc="@Search"
+                 ToStringFunc="@DisplayFor"
+                 Clearable="@Clearable"
+                 Dense="true"
+                 ShowProgressIndicator="true"
+                 CoerceText="false"
+                 ResetValueOnEmptyText="false">
+    <ItemTemplate Context="id">
+        @{ var n = _byId.GetValueOrDefault(id ?? Guid.Empty); }
+        @if (n is not null)
+        {
+            <div style="@($"padding-left: {n.Depth * 12}px;")">
+                <MudText Typo="Typo.body2"><b>@n.Name</b>
+                    <span style="opacity:0.5;"> · @n.NodeTypeName</span>
+                </MudText>
+                @if (n.Depth > 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@n.FullPath</MudText>
+                }
+            </div>
+        }
+    </ItemTemplate>
+</MudAutocomplete>
+
+@code {
+    [Parameter] public Guid? Value { get; set; }
+    [Parameter] public EventCallback<Guid?> ValueChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "Подразделение";
+    [Parameter] public bool Clearable { get; set; } = true;
+
+    private List<OrganizationNodeFlatDto> _all = new();
+    private Dictionary<Guid, OrganizationNodeFlatDto> _byId = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _all = await _queries.GetAllNodesFlatAsync();
+        _byId = _all.ToDictionary(n => n.Id);
+    }
+
+    private async Task OnValueChanged(Guid? v) => await ValueChanged.InvokeAsync(v);
+
+    private Task<IEnumerable<Guid?>> Search(string? query, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return Task.FromResult<IEnumerable<Guid?>>(_all.Select(n => (Guid?)n.Id).Take(50));
+
+        var q = query.Trim();
+        var matched = _all
+            .Where(n => n.IsActive)
+            .Where(n => n.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
+                     || n.FullPath.Contains(q, StringComparison.OrdinalIgnoreCase))
+            .Take(50)
+            .Select(n => (Guid?)n.Id);
+
+        return Task.FromResult(matched);
+    }
+
+    private string DisplayFor(Guid? id)
+    {
+        if (id is null || id == Guid.Empty) return string.Empty;
+        return _byId.TryGetValue(id.Value, out var n) ? n.FullPath : string.Empty;
+    }
+}

@@ -24,6 +24,7 @@ public partial class DictionaryDto : IRegister
     [MemoryPackOrder(5)] public bool IsDeleted       { get; set; }
     [MemoryPackOrder(6)] public DateTime CreatedAt   { get; set; }
     [MemoryPackOrder(7)] public DateTime? UpdatedAt  { get; set; }
+    [MemoryPackOrder(8), MemoryPackAllowSerialize] public DictionaryType Type  { get; set; } = DictionaryType.General;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -87,6 +88,7 @@ public partial class CreateDictionaryRequest
     public string Name          { get; set; } = string.Empty;
     public string? Description  { get; set; }
     public string Slug          { get; set; } = string.Empty;
+    [MemoryPackAllowSerialize] public DictionaryType Type  { get; set; } = DictionaryType.General;
     public List<DictionaryFieldRequest> Fields { get; set; } = new();
 }
 
@@ -97,6 +99,7 @@ public partial class UpdateDictionaryRequest
     public string Name          { get; set; } = string.Empty;
     public string? Description  { get; set; }
     public string Slug          { get; set; } = string.Empty;
+    [MemoryPackAllowSerialize] public DictionaryType Type  { get; set; } = DictionaryType.General;
 }
 
 [MemoryPackable]

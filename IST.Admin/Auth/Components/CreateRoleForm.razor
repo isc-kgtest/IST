@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 
 @inject IAuthCommands _authCommands
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <MudPaper Style="width:300px;" Elevation="0">
     <EditForm Model="@_request" OnValidSubmit="SubmitForm">
@@ -57,7 +58,7 @@
 
         try
         {
-            var command = new CreateRoleCommand(Session.Default, _request);
+            var command = new CreateRoleCommand(await _session.GetAsync(), _request);
             var res = await _authCommands.CreateRoleAsync(command);
 
             if (res.Status && res.Data != null)

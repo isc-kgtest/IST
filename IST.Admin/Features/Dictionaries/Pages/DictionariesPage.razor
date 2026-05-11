@@ -40,6 +40,7 @@
 		<Columns>
 			<PropertyColumn Property="x => x.Name" Title="Наименование" />
 			<PropertyColumn Property="x => x.Slug" Title="Slug" />
+			<PropertyColumn Property="x => x.Type" Title="Тип" />
 			<PropertyColumn Property="x => x.Description" Title="Описание" />
 			<PropertyColumn Property="x => x.FieldCount" Title="Полей" />
 			<PropertyColumn Property="x => x.CreatedAt" Title="Создан" Format="dd.MM.yyyy" />
@@ -64,7 +65,7 @@ else
 	@* ═══════════ ДЕТАЛЬНЫЙ ПРОСМОТР СПРАВОЧНИКА ═══════════ *@
 	<MudButton StartIcon="@Icons.Material.Rounded.ArrowBack"
 			   Variant="Variant.Text" Color="Color.Default" Class="mb-3"
-			   OnClick="@(() => _selectedDictionary = null)">
+			   OnClick="CloseDictionary">
 		Назад к списку
 	</MudButton>
 
@@ -78,9 +79,9 @@ else
 		@* ── Структура полей ── *@
 		<MudTabPanel Text="Структура полей" Icon="@Icons.Material.Rounded.TableChart">
 			<MudDataGrid T="DictionaryFieldDto"
-						 Items="@(_detail?.Fields ?? new())"
+						 Items="@(State.ValueOrDefault?.Detail?.Fields ?? new())"
 						 Hover="true" Striped="true" Dense="true"
-						 Loading="_loadingDetail">
+						 Loading="_processing">
 				<ToolBarContent>
 					<MudText Typo="Typo.h6">Поля справочника</MudText>
 					<MudSpacer />
@@ -113,10 +114,10 @@ else
 		@* ── Записи ── *@
 		<MudTabPanel Text="Записи" Icon="@Icons.Material.Rounded.Storage">
 			<DictionaryRecordsGrid DictionaryId="@_selectedDictionary.Id"
-								   Fields="@(_detail?.Fields ?? new())"
-								   Records="@(_detail?.Records ?? new())"
-								   Loading="_loadingDetail"
-								   OnRefresh="LoadDetail" />
+								   Fields="@(State.ValueOrDefault?.Detail?.Fields ?? new())"
+								   Records="@(State.ValueOrDefault?.Detail?.Records ?? new())"
+								   Loading="_processing"
+								   OnRefresh="RefreshAsync" />
 		</MudTabPanel>
 	</MudTabs>
 }

@@ -1,0 +1,255 @@
+@page "/security/audit"
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Blazor
+@using IST.Admin.Features.Security.Components
+@using IST.Contracts.Features.Audit
+@using IST.Contracts.Features.Auth
+@using IST.Shared.DTOs.Audit
+@using IST.Shared.DTOs.Auth
+@using Microsoft.JSInterop
+@using MudBlazor
+
+@attribute [Authorize]
+
+@inherits ComputedStateComponent<SecurityAuditPage.Model>
+
+@inject IAuditQueries _queries
+@inject IAuthQueries _authQueries
+@inject IST.Admin.Auth.SessionAccessor _session
+
+<PageTitle>Журнал безопасности</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-2"><b>Журнал безопасности</b></MudText>
+<MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-4">
+    Все события входов, изменений пользователей, ролей и пар «роль ↔ привилегии».
+</MudText>
+
+<MudPaper Elevation="1" Class="pa-4 mb-4">
+    <MudGrid>
+        <MudItem xs="12" md="3">
+            <MudSelect T="string" Value="_eventType" ValueChanged="OnEventTypeChanged"
+                       Label="Тип события" Variant="Variant.Outlined" Dense="true" Clearable="true">
+                <MudSelectItem T="string" Value="@(null!)">— любые —</MudSelectItem>
+                @foreach (var et in (State.ValueOrDefault?.EventTypes ?? new()))
+                {
+                    <MudSelectItem T="string" Value="@et">@et</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudTextField T="string" Value="_actorLogin" ValueChanged="OnActorChanged"
+                          Label="Кто (логин)" Variant="Variant.Outlined" Clearable="true" DebounceInterval="400" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudTextField T="string" Value="_targetLogin" ValueChanged="OnTargetChanged"
+                          Label="Над кем (логин)" Variant="Variant.Outlined" Clearable="true" DebounceInterval="400" />
+        </MudItem>
+        <MudItem xs="6" md="2">
+            <MudDatePicker Date="@_from" DateChanged="OnFromChanged"
+                           Label="С даты" Variant="Variant.Outlined" Clearable="true"
+                           PickerVariant="PickerVariant.Dialog" />
+        </MudItem>
+        <MudItem xs="6" md="1">
+            <MudCheckBox T="bool" Value="@_onlyFailures" ValueChanged="OnOnlyFailuresChanged"
+                         Color="Color.Error" Label="Только сбои" />
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@{
+    var model = State.ValueOrDefault;
+}
+
+@if (model is null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (model.Page.AccessDenied)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-3">
+        <b>У вашего аккаунта нет привилегии <code>audit.view</code>.</b><br />
+        Если вы admin — выйдите и войдите ещё раз: при переходе на новую модель прав
+        сессии, созданные до миграции, не получили обновлённый набор привилегий.
+        <div class="mt-3">
+            <MudButton Variant="Variant.Filled" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Logout"
+                       OnClick="LogoutAndRelogin">
+                Выйти и войти заново
+            </MudButton>
+        </div>
+    </MudAlert>
+
+    @if (model.Me is { } me)
+    {
+        <MudPaper Elevation="0" Outlined="true" Class="pa-4 mb-3">
+            <MudText Typo="Typo.subtitle2" Class="mb-2"><b>Состояние моей сессии (диагностика)</b></MudText>
+            <MudText Typo="Typo.body2"><b>Аутентифицирован:</b> @(me.IsAuthenticated ? "да" : "нет")</MudText>
+            @if (me.IsAuthenticated)
+            {
+                <MudText Typo="Typo.body2"><b>Логин:</b> @me.Login (@me.FullName)</MudText>
+                <MudText Typo="Typo.body2"><b>Роли:</b> @(me.Roles.Count == 0 ? "нет" : string.Join(", ", me.Roles))</MudText>
+                <MudText Typo="Typo.body2"><b>Привилегий:</b> @me.Permissions.Count</MudText>
+                @if (me.Permissions.Count > 0)
+                {
+                    <details class="mt-2">
+                        <summary style="cursor:pointer;">Полный список</summary>
+                        <ul style="font-family: monospace; font-size: 0.85rem; margin-top: 8px;">
+                            @foreach (var p in me.Permissions)
+                            {
+                                <li>@p</li>
+                            }
+                        </ul>
+                    </details>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">
+                        Список привилегий пуст — это и есть причина отказа. Скорее всего вы
+                        вошли до того, как seeder связал admin со всеми привилегиями.
+                        Кнопка «Выйти и войти заново» наверху это починит.
+                    </MudAlert>
+                }
+            }
+        </MudPaper>
+    }
+}
+else
+{
+    <MudPaper Elevation="1">
+        <MudDataGrid T="AuditLogEntryDto"
+                     Items="@model.Page.Items"
+                     Hover="true"
+                     Dense="true"
+                     Loading="@_loading">
+            <Columns>
+                <PropertyColumn Property="x => x.Timestamp" Title="Время" Format="dd.MM.yyyy HH:mm:ss" />
+                <TemplateColumn Title="Тип" Sortable="false">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small"
+                                 Color="@(context.Item.Success ? Color.Success : Color.Error)"
+                                 Variant="Variant.Outlined">
+                            @context.Item.EventType
+                        </MudChip>
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.ActorLogin" Title="Кто" />
+                <PropertyColumn Property="x => x.TargetLogin" Title="Над кем" />
+                <PropertyColumn Property="x => x.IpAddress" Title="IP" />
+                <PropertyColumn Property="x => x.Message" Title="Сообщение" />
+                <TemplateColumn Title="Подробно" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        @if (!string.IsNullOrEmpty(context.Item.DetailsJson) || !string.IsNullOrEmpty(context.Item.UserAgent))
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Info" Size="Size.Small"
+                                           OnClick="@(() => ShowDetails(context.Item))" />
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+
+        <div class="d-flex justify-space-between align-center pa-3">
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Записей всего: @model.Page.Total; показано @model.Page.Items.Count, начиная с @(_skip + 1).
+            </MudText>
+            <div class="d-flex align-center gap-2">
+                <MudButton OnClick="PrevPage" Disabled="@(_skip <= 0)" Size="Size.Small">‹ Пред.</MudButton>
+                <MudButton OnClick="NextPage" Disabled="@(_skip + _take >= model.Page.Total)" Size="Size.Small">След. ›</MudButton>
+                <MudSelect T="int" Value="_take" ValueChanged="OnPageSizeChanged" Dense="true" Variant="Variant.Outlined" Style="max-width:100px;">
+                    @foreach (var n in new[] { 25, 50, 100, 200 })
+                    {
+                        <MudSelectItem T="int" Value="@n">@n</MudSelectItem>
+                    }
+                </MudSelect>
+            </div>
+        </div>
+    </MudPaper>
+}
+
+@code {
+    public sealed class Model
+    {
+        public AuditLogPageDto Page { get; init; } = new();
+        public List<string> EventTypes { get; init; } = new();
+        public WhoAmIDto? Me { get; init; }
+        public static readonly Model Empty = new();
+    }
+
+    private string? _eventType;
+    private string? _actorLogin;
+    private string? _targetLogin;
+    private DateTime? _from;
+    private bool _onlyFailures;
+    private int _skip = 0;
+    private int _take = 50;
+    private bool _loading;
+
+    protected override ComputedState<Model>.Options GetStateOptions()
+        => new() { InitialValue = Model.Empty, UpdateDelayer = FixedDelayer.Get(0) };
+
+    protected override async Task<Model> ComputeState(CancellationToken cancellationToken)
+    {
+        _loading = true;
+        try
+        {
+            var filter = new AuditFilter
+            {
+                EventType = string.IsNullOrWhiteSpace(_eventType) ? null : _eventType,
+                ActorLoginContains = string.IsNullOrWhiteSpace(_actorLogin) ? null : _actorLogin,
+                TargetLoginContains = string.IsNullOrWhiteSpace(_targetLogin) ? null : _targetLogin,
+                FromUtc = _from?.ToUniversalTime(),
+                ToUtc = null,
+                OnlyFailures = _onlyFailures ? true : null,
+            };
+
+            var session = await _session.GetAsync(cancellationToken);
+            var page = await _queries.GetAuditPageAsync(session, filter, _skip, _take, cancellationToken);
+            var types = await _queries.GetEventTypesAsync(session, cancellationToken);
+            var me = await _authQueries.WhoAmIAsync(session, cancellationToken);
+            return new Model { Page = page, EventTypes = types, Me = me };
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ResetAndRecomputeAsync()
+    {
+        _skip = 0;
+        await State.Recompute();
+    }
+
+    private Task OnEventTypeChanged(string? v) { _eventType = v; return ResetAndRecomputeAsync(); }
+    private Task OnActorChanged(string? v) { _actorLogin = v; return ResetAndRecomputeAsync(); }
+    private Task OnTargetChanged(string? v) { _targetLogin = v; return ResetAndRecomputeAsync(); }
+    private Task OnFromChanged(DateTime? v) { _from = v; return ResetAndRecomputeAsync(); }
+    private Task OnOnlyFailuresChanged(bool v) { _onlyFailures = v; return ResetAndRecomputeAsync(); }
+    private Task OnPageSizeChanged(int v) { _take = v; return ResetAndRecomputeAsync(); }
+
+    private async Task PrevPage()
+    {
+        _skip = Math.Max(0, _skip - _take);
+        await State.Recompute();
+    }
+    private async Task NextPage()
+    {
+        _skip += _take;
+        await State.Recompute();
+    }
+
+    private async Task LogoutAndRelogin()
+    {
+        await _js.InvokeAsync<bool>("authHelper.logout");
+        _navManager.NavigateTo("/login", forceLoad: true);
+    }
+
+    private async Task ShowDetails(AuditLogEntryDto item)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Item"] = item,
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        await _dialogService.ShowAsync<AuditDetailsDialog>($"Событие: {item.EventType}", parameters, options);
+    }
+}

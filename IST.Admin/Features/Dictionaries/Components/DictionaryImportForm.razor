@@ -5,6 +5,7 @@
 
 @inject IDictionaryCommands _dictCommands
 @inject ISnackbar _snackbar
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <MudPaper Style="min-width:320px;" Elevation="0">
     <MudText Typo="Typo.body2" Class="mb-4">
@@ -51,7 +52,7 @@
         {
             using var ms = new MemoryStream();
             await _file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(ms);
-            var command = new ImportDictionaryRecordsCommand(Session.Default, DictionaryId, ms.ToArray(), _file.Name);
+            var command = new ImportDictionaryRecordsCommand(await _session.GetAsync(), DictionaryId, ms.ToArray(), _file.Name);
             var res = await _dictCommands.ImportRecordsAsync(command);
             if (res.Status)
             {

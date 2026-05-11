@@ -1,4 +1,5 @@
 using IST.Contracts.Features.Auth;
+using IST.Services.Features.Auth.Authentication;
 using MapsterMapper;
 
 namespace IST.Services.Features.Auth;
@@ -7,11 +8,13 @@ public class AuthQueries : IAuthQueries
 {
     private readonly DbHub<AppDbContext> _dbHub;
     private readonly IMapper _mapper;
+    private readonly ICurrentUserStore _users;
 
-    public AuthQueries(DbHub<AppDbContext> dbHub, IMapper mapper)
+    public AuthQueries(DbHub<AppDbContext> dbHub, IMapper mapper, ICurrentUserStore users)
     {
         _dbHub = dbHub;
         _mapper = mapper;
+        _users = users;
     }
 
     [ComputeMethod(MinCacheDuration = 60)]
@@ -72,5 +75,50 @@ public class AuthQueries : IAuthQueries
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
         return user == null ? null : _mapper.Map<UserDto>(user);
+    }
+
+    [ComputeMethod(MinCacheDuration = 60)]
+    public virtual async Task<List<PermissionDto>> GetAllPermissionsAsync(CancellationToken cancellationToken = default)
+    {
+        var dbContext = await _dbHub.CreateDbContext(cancellationToken);
+        return await dbContext.Permissions.AsNoTracking()
+            .OrderBy(p => p.Category).ThenBy(p => p.Code)
+            .Select(p => new PermissionDto
+            {
+                Id = p.Id,
+                Code = p.Code,
+                Description = p.Description,
+                Category = p.Category,
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    [ComputeMethod(MinCacheDuration = 60)]
+    public virtual async Task<List<Guid>> GetPermissionIdsByRoleAsync(Guid roleId, CancellationToken cancellationToken = default)
+    {
+        var dbContext = await _dbHub.CreateDbContext(cancellationToken);
+        return await dbContext.RolePermissions.AsNoTracking()
+            .Where(rp => rp.RoleId == roleId)
+            .Select(rp => rp.PermissionId)
+            .ToListAsync(cancellationToken);
+    }
+
+    [ComputeMethod(MinCacheDuration = 5)]
+    public virtual Task<WhoAmIDto> WhoAmIAsync(Session session, CancellationToken cancellationToken = default)
+    {
+        // Синхронный lookup — никаких IAuth.GetUser.
+        var caller = _users.Find(session);
+        if (caller is null)
+            return Task.FromResult(new WhoAmIDto { IsAuthenticated = false });
+
+        return Task.FromResult(new WhoAmIDto
+        {
+            IsAuthenticated = true,
+            UserId = caller.UserId,
+            Login = caller.Login,
+            FullName = caller.FullName,
+            Roles = caller.Roles.ToList(),
+            Permissions = caller.Permissions.OrderBy(p => p).ToList(),
+        });
     }
 }

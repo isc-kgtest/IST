@@ -7,6 +7,7 @@
 
 @inject IDictionaryCommands _dictCommands
 @inject ISnackbar _snackbar
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <MudPaper Style="min-width:400px;" Elevation="0">
     <EditForm Model="@_formValues" OnValidSubmit="SubmitForm">
@@ -132,7 +133,7 @@
                 DictionaryId = DictionaryId,
                 Data = json
             };
-            var res = await _dictCommands.SaveRecordAsync(new SaveDictionaryRecordCommand(Session.Default, request));
+            var res = await _dictCommands.SaveRecordAsync(new SaveDictionaryRecordCommand(await _session.GetAsync(), request));
             if (res.Status && res.Data != null)
             {
                 _snackbar.Add("Запись сохранена", Severity.Success);

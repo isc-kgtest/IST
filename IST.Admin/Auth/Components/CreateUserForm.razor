@@ -4,6 +4,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 
 @inject IAuthCommands _authCommands
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <MudPaper Elevation="0" Style="min-width: 420px;">
     <EditForm Model="@_request" OnValidSubmit="SubmitForm">
@@ -134,7 +135,7 @@
 
         try
         {
-            var command = new CreateUserCommand(Session.Default, _request);
+            var command = new CreateUserCommand(await _session.GetAsync(), _request);
             var res = await _authCommands.CreateUserAsync(command);
 
             if (res.Status && res.Data != null)
