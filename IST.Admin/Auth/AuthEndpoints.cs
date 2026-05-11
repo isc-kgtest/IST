@@ -30,10 +30,17 @@ public static class AuthEndpoints
         LoginRequest request,
         IAuthCommands authCommands)
     {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString();
+        var ua = httpContext.Request.Headers.UserAgent.ToString();
+
         var command = new LoginCommand(
             ActualLab.Fusion.Session.Default,
             request.Login,
-            request.Password);
+            request.Password)
+        {
+            IpAddress = ip,
+            UserAgent = string.IsNullOrEmpty(ua) ? null : ua,
+        };
 
         var res = await authCommands.LoginAsync(command);
 
@@ -95,8 +102,27 @@ public static class AuthEndpoints
         });
     }
 
-    private static async Task<IResult> HandleLogout(HttpContext httpContext)
+    private static async Task<IResult> HandleLogout(
+        HttpContext httpContext,
+        IAuthCommands authCommands)
     {
+        // Снимаем CallerContext с серверного реестра, чтобы перестали проходить
+        // permission-проверки в RPC-командах до конца refresh'а Blazor-цепи.
+        var userIdClaim = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(userIdClaim, out var userId))
+        {
+            try
+            {
+                await authCommands.LogoutAsync(
+                    new LogoutCommand(ActualLab.Fusion.Session.Default, userId));
+            }
+            catch
+            {
+                // Логаут не должен падать вместе с redirect — даже если RPC недоступен,
+                // куки всё равно почистим.
+            }
+        }
+
         await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return Results.Redirect("/login");
     }

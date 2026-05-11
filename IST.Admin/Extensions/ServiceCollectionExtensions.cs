@@ -4,6 +4,7 @@ using ActualLab.Fusion.Blazor;
 using ActualLab.Fusion.Blazor.Authentication;
 using ActualLab.Rpc;
 using IST.Admin.Auth;
+using IST.Contracts.Features.Audit;
 using IST.Contracts.Features.Auth;
 using IST.Contracts.Features.Dictionaries;
 using IST.Contracts.Features.Dictionaries.Commands;
@@ -93,6 +94,8 @@ public static class ServiceCollectionExtensions
         
         fusion.AddClient<IDictionaryQueries>();
         fusion.AddClient<IDictionaryCommands>();
+
+        fusion.AddClient<IAuditQueries>();
 
         // Blazor-интеграция Fusion (CircuitHub и т.п.) + AuthN на Blazor-стороне.
         fusion.AddBlazor();

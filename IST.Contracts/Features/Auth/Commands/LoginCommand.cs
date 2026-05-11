@@ -12,4 +12,8 @@ public partial record LoginCommand(
     [property: DataMember] Session Session,
     [property: DataMember] string Login,
     [property: DataMember] string Password
-) : ICommand<ResponseDTO<SessionUserDto>>;
+) : ICommand<ResponseDTO<SessionUserDto>>
+{
+    [DataMember] public string? IpAddress { get; init; }
+    [DataMember] public string? UserAgent { get; init; }
+}

@@ -2,8 +2,12 @@ using ActualLab.CommandR.Configuration;
 using ActualLab.Fusion.Authentication;
 using IST.Contracts.Features.Auth;
 using IST.Contracts.Features.Auth.Commands;
+using IST.Core.Entities.Audit;
 using IST.Core.Entities.Auth;
+using IST.Core.Entities.BaseEntities;
 using IST.Infrastructure.Security;
+using IST.Services.Features.Audit;
+using IST.Services.Features.Auth.Authentication;
 using MapsterMapper;
 
 namespace IST.Services.Features.Auth;
@@ -14,13 +18,42 @@ public class AuthCommands : IAuthCommands
     private readonly IAuthQueries _queries;
     private readonly IAuth _auth;
     private readonly IMapper _mapper;
+    private readonly ICurrentUserStore _users;
+    private readonly IAuditService _audit;
 
-    public AuthCommands(DbHub<AppDbContext> dbHub, IAuthQueries queries, IAuth auth, IMapper mapper)
+    public AuthCommands(
+        DbHub<AppDbContext> dbHub,
+        IAuthQueries queries,
+        IAuth auth,
+        IMapper mapper,
+        ICurrentUserStore users,
+        IAuditService audit)
     {
         _dbHub = dbHub;
         _queries = queries;
         _auth = auth;
         _mapper = mapper;
+        _users = users;
+        _audit = audit;
+    }
+
+    /// <summary>
+    /// Возвращает CallerContext для текущей Fusion-сессии или <c>null</c> — без выброса
+    /// исключений. Используется только для аудита (актор может быть неизвестен).
+    /// </summary>
+    private async ValueTask<CallerContext?> TryGetCallerAsync(Session session, CancellationToken ct)
+        => await _users.TryFindCallerAsync(_auth, session, ct);
+
+    /// <summary>
+    /// Активирует <see cref="AuditContext"/> с UserId текущего вызывающего —
+    /// чтобы SaveChangesAsync проставил CreatedBy/UpdatedBy/DeletedBy.
+    /// Использовать <c>using var _ = await BeginAuditScopeAsync(command.Session, ct);</c>
+    /// в начале каждого пишущего обработчика.
+    /// </summary>
+    private async ValueTask<IDisposable> BeginAuditScopeAsync(Session session, CancellationToken ct)
+    {
+        var caller = await TryGetCallerAsync(session, ct);
+        return AuditContext.Begin(caller?.UserId);
     }
     // Auth
     [CommandHandler]
@@ -44,10 +77,22 @@ public class AuthCommands : IAuthCommands
             var user = await readCtx.Users.AsNoTracking()
                 .Include(u => u.UserRoles.Where(ur => !ur.IsDeleted))
                     .ThenInclude(ur => ur.Role)
+                        .ThenInclude(r => r.RolePermissions)
+                            .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(u => u.Login == normalizedLogin, cancellationToken);
 
             if (user is null || !PasswordUtils.VerifyPassword(command.Password, user.Password))
             {
+                await _audit.LogAsync(new AuditEntry(
+                    EventType: SecurityAuditEventType.LoginFailed,
+                    Success: false,
+                    ActorUserId: user?.Id,
+                    ActorLogin: command.Login,
+                    IpAddress: command.IpAddress,
+                    UserAgent: command.UserAgent,
+                    Message: user is null ? "Пользователь не найден" : "Неверный пароль"
+                ), cancellationToken);
+
                 return new()
                 {
                     Status = false,
@@ -58,6 +103,16 @@ public class AuthCommands : IAuthCommands
 
             if (!user.IsActive)
             {
+                await _audit.LogAsync(new AuditEntry(
+                    EventType: SecurityAuditEventType.LoginInactive,
+                    Success: false,
+                    ActorUserId: user.Id,
+                    ActorLogin: user.Login,
+                    IpAddress: command.IpAddress,
+                    UserAgent: command.UserAgent,
+                    Message: "Учётная запись отключена"
+                ), cancellationToken);
+
                 return new()
                 {
                     Status = false,
@@ -69,6 +124,16 @@ public class AuthCommands : IAuthCommands
             // Проверка срока действия пароля
             if (user.PasswordExpiryDate <= DateTime.UtcNow)
             {
+                await _audit.LogAsync(new AuditEntry(
+                    EventType: SecurityAuditEventType.LoginPasswordExpired,
+                    Success: false,
+                    ActorUserId: user.Id,
+                    ActorLogin: user.Login,
+                    IpAddress: command.IpAddress,
+                    UserAgent: command.UserAgent,
+                    Message: "Срок действия пароля истёк"
+                ), cancellationToken);
+
                 return new()
                 {
                     Status = false,
@@ -95,12 +160,44 @@ public class AuthCommands : IAuthCommands
                 await writeCtx.SaveChangesAsync(cancellationToken);
             }
 
-            var activeRoles = user.UserRoles
+            var activeUserRoles = user.UserRoles
                 .Where(ur => ur.StartDate <= DateTime.UtcNow
                           && (ur.EndDate == null || ur.EndDate > DateTime.UtcNow))
+                .ToList();
+
+            var activeRoles = activeUserRoles
                 .Select(ur => ur.Role.Name)
                 .Distinct()
                 .ToList();
+
+            var permissionsSet = activeUserRoles
+                .SelectMany(ur => ur.Role.RolePermissions)
+                .Where(rp => !rp.IsDeleted)
+                .Select(rp => rp.Permission.Code)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // Регистрируем CallerContext в серверном реестре активных сессий.
+            // По UserId — последующие RPC-команды резолвят user-id через
+            // Fusion IAuth.GetUser(session) и достают этот CallerContext.
+            _users.Set(user.Id, new CallerContext(
+                UserId: user.Id,
+                Login: user.Login,
+                FullName: user.FullName,
+                Roles: activeRoles,
+                Permissions: permissionsSet)
+            {
+                IpAddress = command.IpAddress,
+                UserAgent = command.UserAgent,
+            });
+
+            await _audit.LogAsync(new AuditEntry(
+                EventType: SecurityAuditEventType.LoginSuccess,
+                Success: true,
+                ActorUserId: user.Id,
+                ActorLogin: user.Login,
+                IpAddress: command.IpAddress,
+                UserAgent: command.UserAgent
+            ), cancellationToken);
 
             return new()
             {
@@ -114,7 +211,8 @@ public class AuthCommands : IAuthCommands
                     FullName = user.FullName,
                     Email = user.EMail,
                     IsActive = user.IsActive,
-                    Roles = activeRoles
+                    Roles = activeRoles,
+                    Permissions = permissionsSet.ToList(),
                 }
             };
         }
@@ -123,6 +221,33 @@ public class AuthCommands : IAuthCommands
             Console.WriteLine(ex.ToString());
             throw new Exception(ex.ToString());
         }
+    }
+
+    [CommandHandler]
+    public virtual async Task<ResponseDTO<string>> LogoutAsync(
+        LogoutCommand command, CancellationToken cancellationToken = default)
+    {
+        if (Invalidation.IsActive)
+            return default!;
+
+        var caller = _users.Find(command.UserId);
+        _users.Remove(command.UserId);
+
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.Logout,
+            Success: true,
+            ActorUserId: command.UserId,
+            ActorLogin: caller?.Login,
+            IpAddress: caller?.IpAddress,
+            UserAgent: caller?.UserAgent
+        ), cancellationToken);
+
+        return new ResponseDTO<string>
+        {
+            Status = true,
+            StatusMessage = "Выход выполнен.",
+            StatusCode = ResponseStatusCode.Ok,
+        };
     }
 
     // Users
@@ -154,6 +279,7 @@ public class AuthCommands : IAuthCommands
         }
 
         // 3. Открываем транзакционный контекст
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         // 4. Проверка уникальности Login
@@ -211,6 +337,16 @@ public class AuthCommands : IAuthCommands
         await dbContext.Users.AddAsync(userEntity, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        var caller = await TryGetCallerAsync(command.Session, cancellationToken);
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.UserCreated,
+            Success: true,
+            ActorUserId: caller?.UserId,
+            ActorLogin: caller?.Login,
+            TargetUserId: userEntity.Id,
+            TargetLogin: userEntity.Login
+        ), cancellationToken);
+
         // 8. Формируем ответ
         return new ResponseDTO<UserResponseDTO>
         {
@@ -235,6 +371,7 @@ public class AuthCommands : IAuthCommands
         }
 
         // 2. Открываем транзакционный контекст
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         // 3. Находим пользователя
@@ -285,6 +422,16 @@ public class AuthCommands : IAuthCommands
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        var actor = await TryGetCallerAsync(command.Session, cancellationToken);
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.UserUpdated,
+            Success: true,
+            ActorUserId: actor?.UserId,
+            ActorLogin: actor?.Login,
+            TargetUserId: user.Id,
+            TargetLogin: user.Login
+        ), cancellationToken);
+
         // 7. Ответ
         return new ResponseDTO<UserResponseDTO>
         {
@@ -313,6 +460,7 @@ public class AuthCommands : IAuthCommands
         // Предполагаю, что command.UserId у тебя Guid или число, поэтому приводим к строке:
         bool isSelfDelete = currentUser?.Id == command.UserId.ToString();
 
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var userToDelete = await dbContext.Users.Include(u => u.UserRoles)
@@ -350,6 +498,19 @@ public class AuthCommands : IAuthCommands
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Принудительно выкидываем все сессии удалённого пользователя.
+        _users.Remove(userToDelete.Id);
+
+        var actor = await TryGetCallerAsync(command.Session, cancellationToken);
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.UserDeleted,
+            Success: true,
+            ActorUserId: actor?.UserId,
+            ActorLogin: actor?.Login,
+            TargetUserId: userToDelete.Id,
+            TargetLogin: userToDelete.Login
+        ), cancellationToken);
 
         return new()
         {
@@ -398,6 +559,7 @@ public class AuthCommands : IAuthCommands
         }
 
         // 3. Проверки с БД
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var user = await dbContext.Users
@@ -436,6 +598,15 @@ public class AuthCommands : IAuthCommands
         user.PasswordExpiryDate = DateTime.UtcNow.AddMonths(6);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.UserPasswordChanged,
+            Success: true,
+            ActorUserId: user.Id,
+            ActorLogin: user.Login,
+            TargetUserId: user.Id,
+            TargetLogin: user.Login
+        ), cancellationToken);
 
         return new()
         {
@@ -477,6 +648,7 @@ public class AuthCommands : IAuthCommands
             };
         }
 
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var user = await dbContext.Users.FirstOrDefaultAsync(x => x.Login == command.Request.Login, cancellationToken);
@@ -512,6 +684,16 @@ public class AuthCommands : IAuthCommands
 
             await dbContext.SaveChangesAsync(cancellationToken);
 
+            var actor = await TryGetCallerAsync(command.Session, cancellationToken);
+            await _audit.LogAsync(new AuditEntry(
+                EventType: SecurityAuditEventType.UserPasswordReset,
+                Success: true,
+                ActorUserId: actor?.UserId,
+                ActorLogin: actor?.Login,
+                TargetUserId: user.Id,
+                TargetLogin: user.Login
+            ), cancellationToken);
+
             return new()
             {
                 Data = user.Login,
@@ -534,6 +716,7 @@ public class AuthCommands : IAuthCommands
             return default!;
         }
         // 3. Открываем контекст
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var normalizedName = command.Request.Name.ToLower().Trim();
@@ -570,6 +753,16 @@ public class AuthCommands : IAuthCommands
         await dbContext.Roles.AddAsync(role, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        var actor = await TryGetCallerAsync(command.Session, cancellationToken);
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.RoleCreated,
+            Success: true,
+            ActorUserId: actor?.UserId,
+            ActorLogin: actor?.Login,
+            Message: $"Создана роль '{role.Name}'",
+            DetailsJson: $"{{\"roleId\":\"{role.Id}\",\"roleName\":\"{role.Name}\"}}"
+        ), cancellationToken);
+
         // 6. Формируем ответ
         return new()
         {
@@ -594,6 +787,7 @@ public class AuthCommands : IAuthCommands
 
 
         // 3. Находим роль
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var role = await dbContext.Roles
@@ -634,6 +828,16 @@ public class AuthCommands : IAuthCommands
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        var actor = await TryGetCallerAsync(command.Session, cancellationToken);
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.RoleUpdated,
+            Success: true,
+            ActorUserId: actor?.UserId,
+            ActorLogin: actor?.Login,
+            Message: $"Обновлена роль '{role.Name}'",
+            DetailsJson: $"{{\"roleId\":\"{role.Id}\",\"roleName\":\"{role.Name}\"}}"
+        ), cancellationToken);
+
         return new()
         {
             Status = true,
@@ -655,6 +859,7 @@ public class AuthCommands : IAuthCommands
             return default!;
         }
 
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var roleToDelete = await dbContext.Roles
@@ -690,6 +895,16 @@ public class AuthCommands : IAuthCommands
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        var actor = await TryGetCallerAsync(command.Session, cancellationToken);
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.RoleDeleted,
+            Success: true,
+            ActorUserId: actor?.UserId,
+            ActorLogin: actor?.Login,
+            Message: $"Удалена роль '{roleToDelete.Name}'",
+            DetailsJson: $"{{\"roleId\":\"{roleToDelete.Id}\",\"roleName\":\"{roleToDelete.Name}\"}}"
+        ), cancellationToken);
+
         return new()
         {
             Status = true,
@@ -716,6 +931,7 @@ public class AuthCommands : IAuthCommands
         var startDate = command.Request.StartDate ?? DateTime.UtcNow;
         var endDate = command.Request.EndDate;
 
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var userExists = await dbContext.Users
@@ -773,6 +989,23 @@ public class AuthCommands : IAuthCommands
         var user = await dbContext.Users
             .FirstOrDefaultAsync(u => u.Id == command.Request.UserId, cancellationToken);
 
+        // Изменение состава ролей — выкидываем CallerContext пользователя, чтобы
+        // перечитал permission'ы при следующем входе. (Хотя реальный пересчёт
+        // permissions для уже-онлайн-сессии пока не делаем — это TODO.)
+        _users.Remove(command.Request.UserId);
+
+        var actor = await TryGetCallerAsync(command.Session, cancellationToken);
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.UserRoleAssigned,
+            Success: true,
+            ActorUserId: actor?.UserId,
+            ActorLogin: actor?.Login,
+            TargetUserId: command.Request.UserId,
+            TargetLogin: user?.Login,
+            Message: $"Назначена роль '{role!.Name}'",
+            DetailsJson: $"{{\"roleId\":\"{role.Id}\",\"roleName\":\"{role.Name}\"}}"
+        ), cancellationToken);
+
         return new()
         {
             Status = true,
@@ -794,6 +1027,7 @@ public class AuthCommands : IAuthCommands
             return default!;
         }
       
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var userRole = await dbContext.UserRoles
@@ -828,6 +1062,21 @@ public class AuthCommands : IAuthCommands
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        // Изменение периода действия роли → пересмотр прав при следующем входе.
+        _users.Remove(userRole.UserId);
+
+        var actor = await TryGetCallerAsync(command.Session, cancellationToken);
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.UserRoleUpdated,
+            Success: true,
+            ActorUserId: actor?.UserId,
+            ActorLogin: actor?.Login,
+            TargetUserId: userRole.UserId,
+            TargetLogin: userRole.User?.Login,
+            Message: $"Изменён период роли '{userRole.Role?.Name}'",
+            DetailsJson: $"{{\"roleId\":\"{userRole.RoleId}\",\"roleName\":\"{userRole.Role?.Name}\",\"startDate\":\"{userRole.StartDate:O}\",\"endDate\":\"{userRole.EndDate:O}\"}}"
+        ), cancellationToken);
+
         return new()
         {
             Status = true,
@@ -848,6 +1097,7 @@ public class AuthCommands : IAuthCommands
             return default!;
         }
 
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var userRole = await dbContext.UserRoles
@@ -874,6 +1124,20 @@ public class AuthCommands : IAuthCommands
 
         dbContext.UserRoles.Remove(userRole!);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Отзыв роли — выкидываем CallerContext пользователя.
+        _users.Remove(command.UserId);
+
+        var actor = await TryGetCallerAsync(command.Session, cancellationToken);
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.UserRoleRevoked,
+            Success: true,
+            ActorUserId: actor?.UserId,
+            ActorLogin: actor?.Login,
+            TargetUserId: command.UserId,
+            Message: $"Отозвана роль '{userRole!.Role?.Name}'",
+            DetailsJson: $"{{\"roleId\":\"{userRole.RoleId}\",\"roleName\":\"{userRole.Role?.Name}\"}}"
+        ), cancellationToken);
 
         return new()
         {

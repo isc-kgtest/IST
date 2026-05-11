@@ -9,6 +9,7 @@ public interface IAuthCommands : ICommandService, IComputeService
 {
     // Auth
     Task<ResponseDTO<SessionUserDto>> LoginAsync(LoginCommand command, CancellationToken cancellationToken = default);
+    Task<ResponseDTO<string>> LogoutAsync(LogoutCommand command, CancellationToken cancellationToken = default);
 
     //Users
     Task<ResponseDTO<UserResponseDTO>> CreateUserAsync(CreateUserCommand command, CancellationToken cancellationToken = default);

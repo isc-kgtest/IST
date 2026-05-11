@@ -7,10 +7,13 @@ using ActualLab.Fusion.EntityFramework;
 using ActualLab.Fusion.EntityFramework.Npgsql;
 using ActualLab.Rpc;
 using ActualLab.Rpc.Server;
+using IST.Contracts.Features.Audit;
 using IST.Contracts.Features.Auth;
 using IST.Contracts.Features.Dictionaries;
 using IST.Infrastructure.Data;
+using IST.Services.Features.Audit;
 using IST.Services.Features.Auth;
+using IST.Services.Features.Auth.Authentication;
 using IST.Services.Features.Dictionaries;
 using Mapster;
 using MapsterMapper;
@@ -74,6 +77,13 @@ public static class ServiceCollectionExtensions
         var commander = services.AddCommander();
         var rpc = services.AddRpc();       
 
+        // Серверный реестр активных сессий: UserId -> CallerContext (роли + permissions).
+        // Заполняется в LoginAsync, чистится в LogoutAsync / удалении пользователя.
+        services.AddSingleton<ICurrentUserStore, InMemoryCurrentUserStore>();
+
+        // Журнал событий безопасности.
+        services.AddSingleton<IAuditService, AuditService>();
+
         // Fusion Blazor + Auth
         // ВАЖНО: AddPresenceReporter() НЕ вызываем на сервере!
         // PresenceReporter пишет в _Operations каждую секунду для каждой
@@ -91,6 +101,7 @@ public static class ServiceCollectionExtensions
         // Queries (Compute)
         fusion.AddService<IAuthQueries, AuthQueries>(RpcServiceMode.Server);
         fusion.AddService<IDictionaryQueries, DictionaryQueries>(RpcServiceMode.Server);
+        fusion.AddService<IAuditQueries, AuditQueries>(RpcServiceMode.Server);
 
         // Commands
         fusion.AddService<IAuthCommands, AuthCommands>(RpcServiceMode.Server);
