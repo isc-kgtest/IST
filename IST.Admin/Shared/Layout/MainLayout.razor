@@ -1,70 +1,114 @@
 @inherits LayoutComponentBase
 @using IST.Admin.Auth
+@using IST.Admin.Shared.Components
 
+@inject IJSRuntime JS
+@inject IST.Admin.Services.LanguageService Lang
 @inject SessionAccessor _session
 
-<MudThemeProvider @ref="@_themeProvider" @bind-IsDarkMode="@_isDarkMode" Theme="MyCustomTheme" />
-
-<AuthorizeView>
-    <Authorized>
-        @* Реактивно отслеживает валидность Fusion-сессии. При logout/удалении/
-           stale cookie выкидывает на /api/auth/logout. Только для залогиненных. *@
-        <SessionWatcher />
-    </Authorized>
-</AuthorizeView>
+<MudThemeProvider @ref="@_themeProvider" @bind-IsDarkMode="@_isDarkMode" Theme="_adminTheme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 <MudPopoverProvider />
 
+<AuthorizeView>
+    <Authorized>
+        @* Реактивно отслеживает живость серверной сессии (logout/удаление/смена ролей). *@
+        <SessionWatcher />
+    </Authorized>
+</AuthorizeView>
+
 <MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Primary">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-        <MudText Typo="Typo.h5" Class="ml-3">IST Admin Suite</MudText>
+
+    <!-- AppBar -->
+    <MudAppBar Elevation="1" Color="Color.Surface">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="ToggleDrawer" />
+        <MudText Typo="Typo.h6" Class="ml-3" Style="font-family:'Space Grotesk',sans-serif; font-weight:700;">
+            @Lang.L("app_title")
+        </MudText>
         <MudSpacer />
-        <MudIconButton Icon="@Icons.Material.Filled.Brightness4" Color="Color.Inherit" OnClick="@ToggleDarkMode" />
+
+        <AuthorizeView>
+            <Authorized>
+                <MudText Typo="Typo.body2" Style="opacity:0.6; margin-right:8px;">
+                    @context.User.Identity?.Name
+                </MudText>
+            </Authorized>
+        </AuthorizeView>
+
+        <LangTogglePill OnChanged="StateHasChanged" />
+
+        <MudTooltip Text="@Lang.L("app_toggle_theme")">
+            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           Color="Color.Inherit" OnClick="ToggleDarkMode" />
+        </MudTooltip>
+
+        <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" />
+        <MudTooltip Text="@Lang.L("app_logout")">
+            <MudIconButton OnClick="LogoutAsync" Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" />
+        </MudTooltip>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
-        <MudNavMenu>
-            <div class="pa-4">
-                <MudText Typo="Typo.h6">Навигация</MudText>
-            </div>
+    <!-- Drawer / Navbar -->
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="1"
+               Variant="DrawerVariant.Responsive">
 
-            @* Основные рабочие разделы *@
-            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Дашборд</MudNavLink>
-            <MudNavLink Href="/nsi" Icon="@Icons.Material.Filled.Storage">Управление НСИ</MudNavLink>
-            <MudNavLink Href="/dictionaries" Icon="@Icons.Material.Filled.MenuBook">Справочники</MudNavLink>
-            <MudNavLink Href="/requests" Icon="@Icons.Material.Filled.Assignment">Управление заявками</MudNavLink>
-            <MudNavLink Href="/trials" Icon="@Icons.Material.Filled.Science">Управление испытаниями</MudNavLink>
-            <MudNavLink Href="/authorities" Icon="@Icons.Material.Filled.AccountBalance">Взаимодействие с органами</MudNavLink>
-    
-            @* Аналитика и интеграции *@
-            <MudNavLink Href="/reports" Icon="@Icons.Material.Filled.PieChart">Отчеты и аналитика</MudNavLink>
-            <MudNavLink Href="/exchange" Icon="@Icons.Material.Filled.SyncAlt">Обмен данными</MudNavLink>
+        <MudDrawerHeader>
+            <MudText Typo="Typo.subtitle1" Class="mt-1"><b>@Lang.L("drawer_brand")</b></MudText>
+        </MudDrawerHeader>
 
-            @* Системные настройки (визуально отделены) *@
-            <MudDivider Class="my-2" />
-            <div class="px-4 pb-2 pt-2">
-                <MudText Typo="Typo.caption" Color="Color.Dark">СИСТЕМА</MudText>
-            </div>
-
-            <MudNavLink Href="/organization" Icon="@Icons.Material.Filled.AccountTree">Оргструктура</MudNavLink>
-
+        <MudNavMenu Color="Color.Primary">
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+                @Lang.L("nav_dashboard")
+            </MudNavLink>
+            <MudNavLink Href="/nsi" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Storage">
+                @Lang.L("nav_nsi")
+            </MudNavLink>
+            <MudNavLink Href="/dictionaries" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MenuBook">
+                @Lang.L("nav_dictionaries")
+            </MudNavLink>
+            <MudNavLink Href="/requests" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Assignment">
+                @Lang.L("nav_requests")
+            </MudNavLink>
+            <MudNavLink Href="/trials" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Science">
+                @Lang.L("nav_trials")
+            </MudNavLink>
+            <MudNavLink Href="/authorities" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AccountBalance">
+                @Lang.L("nav_authorities")
+            </MudNavLink>
+            <MudNavLink Href="/organization" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AccountTree">
+                @Lang.L("nav_organization")
+            </MudNavLink>
+            <MudNavLink Href="/reports" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PieChart">
+                @Lang.L("nav_reports")
+            </MudNavLink>
+            <MudNavLink Href="/exchange" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SyncAlt">
+                @Lang.L("nav_exchange")
+            </MudNavLink>
             <MudNavLinkAuthRole Href="/authadminpage" Icon="@Icons.Material.Filled.AdminPanelSettings" Roles="admin">
-                Управление доступом
+                @Lang.L("nav_access")
             </MudNavLinkAuthRole>
-            <MudNavLink Href="/security/permissions" Icon="@Icons.Material.Filled.VpnKey">Привилегии ролей</MudNavLink>
-            <MudNavLink Href="/security/audit" Icon="@Icons.Material.Filled.Security">Журнал безопасности</MudNavLink>
-
+            <MudNavGroup Title="@Lang.L("nav_audit")" Icon="@Icons.Material.Filled.Security" Expanded="false">
+                <MudNavLink Href="/security/permissions" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.VpnKey">
+                    @Lang.L("nav_permissions")
+                </MudNavLink>
+                <MudNavLink Href="/security/audit" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.History">
+                    @Lang.L("nav_audit")
+                </MudNavLink>
+            </MudNavGroup>
+            <MudDivider Class="my-2" />
             <MudNavLinkLoginState />
         </MudNavMenu>
     </MudDrawer>
 
+    <!-- Main content -->
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6 px-4">
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6 mt-2">
             @Body
         </MudContainer>
     </MudMainContent>
+
 </MudLayout>
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -74,38 +118,102 @@
 </div>
 
 @code {
-    bool _drawerOpen = true;
-    bool _isDarkMode = false;
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = true;
     private MudThemeProvider _themeProvider = null!;
 
     protected override async Task OnInitializedAsync()
     {
-        // Раньше всего в жизни circuit'а инициализируем Fusion-сессию из cookie
-        // (SessionAccessor.GetAsync проставит ISessionResolver.Session). Без этого
-        // первый RPC-вызов любой страницы ушёл бы с дефолтной "~"-сессией.
+        // Раньше всего в жизни circuit'а: проставляем ISessionResolver.Session из cookie.
         await _session.GetAsync();
     }
 
-    void DrawerToggle()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        _drawerOpen = !_drawerOpen;
+        if (firstRender)
+        {
+            await Lang.InitAsync();
+            StateHasChanged();
+        }
     }
 
-    void ToggleDarkMode()
-    {
-        _isDarkMode = !_isDarkMode;
-    }
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void ToggleDarkMode() => _isDarkMode = !_isDarkMode;
+    private async Task LogoutAsync() => await JS.InvokeVoidAsync("authHelper.logout");
 
-    MudTheme MyCustomTheme = new MudTheme()
+    private readonly MudTheme _adminTheme = new()
     {
         PaletteLight = new PaletteLight()
         {
-            Primary = "#37474F", // BlueGrey.Darken3
-            AppbarBackground = "#263238", // BlueGrey.Darken4
+            Primary = "#7c3aed",
+            Secondary = "#06b6d4",
+            Tertiary = "#f59e0b",
+            Background = "#f3f4f6",
+            Surface = "#ffffff",
+            AppbarBackground = "#ffffff",
+            AppbarText = "#1f2937",
+            DrawerBackground = "#ffffff",
+            DrawerText = "#4b5563",
+            DrawerIcon = "#6b7280",
+            TextPrimary = "#111827",
+            TextSecondary = "#4b5563",
+            ActionDefault = "#6b7280",
+            ActionDisabled = "rgba(0,0,0,0.26)",
+            Divider = "rgba(0,0,0,0.12)",
+            TableLines = "rgba(0,0,0,0.12)",
+            LinesDefault = "rgba(0,0,0,0.12)",
+            Info = "#3b82f6",
+            Success = "#10b981",
+            Warning = "#f59e0b",
+            Error = "#ef4444",
         },
         PaletteDark = new PaletteDark()
         {
-            Primary = "#78909C" // BlueGrey.Lighten1
+            Primary = "#7c3aed",
+            Secondary = "#06b6d4",
+            Tertiary = "#f59e0b",
+            Background = "#111827",
+            Surface = "#1f2937",
+            AppbarBackground = "#1f2937",
+            AppbarText = "rgba(255,255,255,0.87)",
+            DrawerBackground = "#111827",
+            DrawerText = "rgba(255,255,255,0.87)",
+            DrawerIcon = "rgba(255,255,255,0.6)",
+            TextPrimary = "rgba(255,255,255,0.87)",
+            TextSecondary = "rgba(255,255,255,0.5)",
+            ActionDefault = "rgba(255,255,255,0.6)",
+            ActionDisabled = "rgba(255,255,255,0.26)",
+            Divider = "rgba(255,255,255,0.08)",
+            TableLines = "rgba(255,255,255,0.08)",
+            LinesDefault = "rgba(255,255,255,0.08)",
+            Info = "#3b82f6",
+            Success = "#10b981",
+            Warning = "#f59e0b",
+            Error = "#ef4444",
+        },
+        Typography = new Typography()
+        {
+            Default = new DefaultTypography()
+            {
+                FontFamily = new[] { "Noto Sans", "sans-serif" },
+                FontSize = "0.9375rem",
+            },
+            H5 = new H5Typography()
+            {
+                FontFamily = new[] { "Cera Pro", "Space Grotesk", "sans-serif" },
+                FontWeight = "700",
+                FontSize = "1.5rem",
+            },
+            H6 = new H6Typography()
+            {
+                FontFamily = new[] { "Cera Pro", "Space Grotesk", "sans-serif" },
+                FontWeight = "600",
+                FontSize = "1.25rem",
+            },
+        },
+        LayoutProperties = new LayoutProperties()
+        {
+            DefaultBorderRadius = "12px",
         }
     };
 }
