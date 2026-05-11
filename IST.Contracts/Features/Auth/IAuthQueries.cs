@@ -19,4 +19,17 @@ public interface IAuthQueries : IComputeService
 
     [ComputeMethod(MinCacheDuration = 60)]
     Task<UserDto?> GetUserByIdWithRolesAsync(Guid id, CancellationToken cancellationToken = default);
+
+    [ComputeMethod(MinCacheDuration = 60)]
+    Task<List<PermissionDto>> GetAllPermissionsAsync(CancellationToken cancellationToken = default);
+
+    [ComputeMethod(MinCacheDuration = 60)]
+    Task<List<Guid>> GetPermissionIdsByRoleAsync(Guid roleId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Диагностический срез сессии: какой пользователь, его роли и permission'ы
+    /// как их видит сервер. Помогает отладить отказы доступа.
+    /// </summary>
+    [ComputeMethod(MinCacheDuration = 5)]
+    Task<WhoAmIDto> WhoAmIAsync(Session session, CancellationToken cancellationToken = default);
 }

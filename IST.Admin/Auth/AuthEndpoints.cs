@@ -23,6 +23,10 @@ public static class AuthEndpoints
 
         app.MapGet("/api/auth/logout", (Delegate)HandleLogout)
             .AllowAnonymous();
+
+        // JS-хелпер шлёт POST. Используем тот же handler.
+        app.MapPost("/api/auth/logout", (Delegate)HandleLogout)
+            .AllowAnonymous();
     }
 
     private static async Task<IResult> HandleLogin(

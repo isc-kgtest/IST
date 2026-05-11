@@ -29,4 +29,7 @@ public interface IAuthCommands : ICommandService, IComputeService
     Task<ResponseDTO<UserRoleResponseDTO>> UpdateUserRoleAsync(UpdateUserRoleCommand command, CancellationToken cancellationToken = default);
 
     Task<ResponseDTO<string>> DeleteUserRoleAsync(DeleteUserRoleCommand command, CancellationToken cancellationToken = default);
+
+    // Привилегии ролей
+    Task<ResponseDTO<string>> UpdateRolePermissionsAsync(UpdateRolePermissionsCommand command, CancellationToken cancellationToken = default);
 }

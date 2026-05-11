@@ -90,4 +90,19 @@ public class AuditQueries : IAuditQueries
 
         return new AuditLogPageDto { Items = items, Total = total };
     }
+
+    [ComputeMethod(MinCacheDuration = 60)]
+    public virtual async Task<List<string>> GetEventTypesAsync(Session session, CancellationToken cancellationToken = default)
+    {
+        var caller = await _users.TryFindCallerAsync(_auth, session, cancellationToken);
+        if (caller is null || !caller.HasPermission(Permissions.AuditView))
+            return new List<string>();
+
+        await using var db = await _dbHub.CreateDbContext(cancellationToken);
+        return await db.SecurityAuditLogs.AsNoTracking()
+            .Select(x => x.EventType)
+            .Distinct()
+            .OrderBy(t => t)
+            .ToListAsync(cancellationToken);
+    }
 }

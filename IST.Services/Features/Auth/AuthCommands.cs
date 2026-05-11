@@ -1147,4 +1147,109 @@ public class AuthCommands : IAuthCommands
             Data = userRole!.Role?.Name ?? ""
         };
     }
+
+    // Привилегии ролей
+    [CommandHandler]
+    public virtual async Task<ResponseDTO<string>> UpdateRolePermissionsAsync(
+        UpdateRolePermissionsCommand command, CancellationToken cancellationToken = default)
+    {
+        if (Invalidation.IsActive)
+        {
+            _ = _queries.GetPermissionIdsByRoleAsync(command.RoleId, default);
+            _ = _queries.GetAllRolesAsync(default);
+            return default!;
+        }
+
+        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
+        await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
+
+        var role = await dbContext.Roles
+            .FirstOrDefaultAsync(r => r.Id == command.RoleId, cancellationToken);
+
+        if (role is null)
+            return new ResponseDTO<string>
+            {
+                Status = false,
+                StatusMessage = "Роль не найдена.",
+                StatusCode = ResponseStatusCode.NotFound,
+            };
+
+        // admin-роль защищаем: ей всегда даём все permission'ы.
+        var isAdmin = string.Equals(role.Name, "admin", StringComparison.OrdinalIgnoreCase);
+
+        Guid[] targetIds;
+        if (isAdmin)
+        {
+            targetIds = await dbContext.Permissions
+                .Select(p => p.Id)
+                .ToArrayAsync(cancellationToken);
+        }
+        else
+        {
+            // Отфильтруем мусор: оставим только реально существующие PermissionId.
+            var validIds = await dbContext.Permissions
+                .Where(p => command.PermissionIds.Contains(p.Id))
+                .Select(p => p.Id)
+                .ToArrayAsync(cancellationToken);
+            targetIds = validIds;
+        }
+
+        var existing = await dbContext.RolePermissions
+            .Where(rp => rp.RoleId == role.Id)
+            .ToListAsync(cancellationToken);
+
+        var existingIds = existing.Select(rp => rp.PermissionId).ToHashSet();
+        var targetSet = targetIds.ToHashSet();
+
+        var toAdd = targetSet.Except(existingIds)
+            .Select(pid => new RolePermissionEntity { RoleId = role.Id, PermissionId = pid })
+            .ToList();
+        var toRemove = existing.Where(rp => !targetSet.Contains(rp.PermissionId)).ToList();
+
+        if (toAdd.Count == 0 && toRemove.Count == 0)
+        {
+            return new ResponseDTO<string>
+            {
+                Status = true,
+                StatusMessage = "Изменений нет.",
+                StatusCode = ResponseStatusCode.Ok,
+                Data = role.Name,
+            };
+        }
+
+        if (toAdd.Count > 0)
+            await dbContext.RolePermissions.AddRangeAsync(toAdd, cancellationToken);
+        if (toRemove.Count > 0)
+            dbContext.RolePermissions.RemoveRange(toRemove);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Сбрасываем CallerContext всех пользователей этой роли — пусть перечитают
+        // permission'ы при следующем входе.
+        var affectedUserIds = await dbContext.UserRoles
+            .Where(ur => ur.RoleId == role.Id && !ur.IsDeleted)
+            .Select(ur => ur.UserId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+        foreach (var uid in affectedUserIds)
+            _users.Remove(uid);
+
+        var actor = await TryGetCallerAsync(command.Session, cancellationToken);
+        await _audit.LogAsync(new AuditEntry(
+            EventType: SecurityAuditEventType.RoleUpdated,
+            Success: true,
+            ActorUserId: actor?.UserId,
+            ActorLogin: actor?.Login,
+            Message: $"Изменён набор привилегий роли '{role.Name}' (+{toAdd.Count}/-{toRemove.Count})",
+            DetailsJson: $"{{\"roleId\":\"{role.Id}\",\"roleName\":\"{role.Name}\",\"added\":{toAdd.Count},\"removed\":{toRemove.Count},\"total\":{targetSet.Count}}}"
+        ), cancellationToken);
+
+        return new ResponseDTO<string>
+        {
+            Status = true,
+            StatusMessage = $"Привилегии роли «{role.Name}» обновлены.",
+            StatusCode = ResponseStatusCode.Ok,
+            Data = role.Name,
+        };
+    }
 }
