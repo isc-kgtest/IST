@@ -14,7 +14,7 @@ public static class AuthGuards
     {
         var caller = store.Find(session);
         if (caller is null)
-            throw AuthorizationException.Unauthenticated();
+            throw AuthorizationException.Unauthenticated(session);
         return caller;
     }
 
@@ -26,7 +26,7 @@ public static class AuthGuards
         if (codes.Length == 0)
             return caller;
         if (!codes.Any(caller.HasPermission))
-            throw AuthorizationException.Forbidden();
+            throw AuthorizationException.Forbidden(codes.FirstOrDefault());
         return caller;
     }
 
@@ -35,8 +35,9 @@ public static class AuthGuards
         this ICurrentUserStore store, Session session, params string[] codes)
     {
         var caller = store.RequireAuthenticated(session);
-        if (codes.Any(c => !caller.HasPermission(c)))
-            throw AuthorizationException.Forbidden();
+        var missing = codes.FirstOrDefault(c => !caller.HasPermission(c));
+        if (missing is not null)
+            throw AuthorizationException.Forbidden(missing);
         return caller;
     }
 
@@ -44,14 +45,14 @@ public static class AuthGuards
     {
         var caller = store.RequireAuthenticated(session);
         if (!caller.IsAdmin)
-            throw AuthorizationException.Forbidden();
+            throw AuthorizationException.Forbidden("admin");
         return caller;
     }
 
     public static CallerContext RequireRole(this CallerContext caller, params string[] roles)
     {
         if (!roles.Any(caller.IsInRole))
-            throw AuthorizationException.Forbidden();
+            throw AuthorizationException.Forbidden(roles.FirstOrDefault());
         return caller;
     }
 }

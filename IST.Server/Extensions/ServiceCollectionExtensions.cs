@@ -2,6 +2,7 @@ using ActualLab.CommandR;
 using ActualLab.Fusion;
 using ActualLab.Fusion.EntityFramework;
 using ActualLab.Fusion.EntityFramework.Npgsql;
+using ActualLab.Fusion.Server;
 using ActualLab.Rpc;
 using ActualLab.Rpc.Server;
 using IST.Contracts.Features.Audit;
@@ -61,6 +62,10 @@ public static class ServiceCollectionExtensions
         var fusion = services.AddFusion();
         var commander = services.AddCommander();
         var rpc = services.AddRpc();
+
+        // Fusion-серверная инфраструктура: RPC-middleware + хост для Compute/Command
+        // сервисов. exposeBackend:false → IAuthBackend клиентам недоступен.
+        fusion.AddWebServer(exposeBackend: false);
 
         // RPC-транспорт.
         rpc.AddWebSocketServer();
