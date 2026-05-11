@@ -8,6 +8,5 @@ namespace IST.Contracts.Features.Auth.Commands;
 [DataContract]
 [MemoryPackable]
 public partial record LogoutCommand(
-    [property: DataMember] Session Session,
-    [property: DataMember] Guid UserId
+    [property: DataMember] Session Session
 ) : ICommand<ResponseDTO<string>>;

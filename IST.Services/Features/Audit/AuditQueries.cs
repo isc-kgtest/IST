@@ -1,12 +1,11 @@
 using ActualLab.Fusion;
-using ActualLab.Fusion.Authentication;
+using ActualLab.Fusion.EntityFramework;
 using IST.Contracts.Features.Audit;
 using IST.Core.Entities.Audit;
 using IST.Core.Entities.Auth;
 using IST.Infrastructure.Data;
 using IST.Services.Features.Auth.Authentication;
 using IST.Shared.DTOs.Audit;
-using ActualLab.Fusion.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 
 namespace IST.Services.Features.Audit;
@@ -15,13 +14,11 @@ public class AuditQueries : IAuditQueries
 {
     private readonly DbHub<AppDbContext> _dbHub;
     private readonly ICurrentUserStore _users;
-    private readonly IAuth _auth;
 
-    public AuditQueries(DbHub<AppDbContext> dbHub, ICurrentUserStore users, IAuth auth)
+    public AuditQueries(DbHub<AppDbContext> dbHub, ICurrentUserStore users)
     {
         _dbHub = dbHub;
         _users = users;
-        _auth = auth;
     }
 
     [ComputeMethod(MinCacheDuration = 30)]
@@ -29,7 +26,8 @@ public class AuditQueries : IAuditQueries
         Session session, AuditFilter filter, int skip, int take,
         CancellationToken cancellationToken = default)
     {
-        var caller = await _users.TryFindCallerAsync(_auth, session, cancellationToken);
+        // Синхронный lookup — никаких IAuth.GetUser.
+        var caller = _users.Find(session);
         if (caller is null || !caller.HasPermission(Permissions.AuditView))
             return new AuditLogPageDto { AccessDenied = true };
 
@@ -94,7 +92,7 @@ public class AuditQueries : IAuditQueries
     [ComputeMethod(MinCacheDuration = 60)]
     public virtual async Task<List<string>> GetEventTypesAsync(Session session, CancellationToken cancellationToken = default)
     {
-        var caller = await _users.TryFindCallerAsync(_auth, session, cancellationToken);
+        var caller = _users.Find(session);
         if (caller is null || !caller.HasPermission(Permissions.AuditView))
             return new List<string>();
 

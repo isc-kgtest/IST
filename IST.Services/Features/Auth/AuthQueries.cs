@@ -1,4 +1,3 @@
-using ActualLab.Fusion.Authentication;
 using IST.Contracts.Features.Auth;
 using IST.Services.Features.Auth.Authentication;
 using MapsterMapper;
@@ -10,14 +9,12 @@ public class AuthQueries : IAuthQueries
     private readonly DbHub<AppDbContext> _dbHub;
     private readonly IMapper _mapper;
     private readonly ICurrentUserStore _users;
-    private readonly IAuth _auth;
 
-    public AuthQueries(DbHub<AppDbContext> dbHub, IMapper mapper, ICurrentUserStore users, IAuth auth)
+    public AuthQueries(DbHub<AppDbContext> dbHub, IMapper mapper, ICurrentUserStore users)
     {
         _dbHub = dbHub;
         _mapper = mapper;
         _users = users;
-        _auth = auth;
     }
 
     [ComputeMethod(MinCacheDuration = 60)]
@@ -107,13 +104,14 @@ public class AuthQueries : IAuthQueries
     }
 
     [ComputeMethod(MinCacheDuration = 5)]
-    public virtual async Task<WhoAmIDto> WhoAmIAsync(Session session, CancellationToken cancellationToken = default)
+    public virtual Task<WhoAmIDto> WhoAmIAsync(Session session, CancellationToken cancellationToken = default)
     {
-        var caller = await _users.TryFindCallerAsync(_auth, session, cancellationToken);
+        // Синхронный lookup — никаких IAuth.GetUser.
+        var caller = _users.Find(session);
         if (caller is null)
-            return new WhoAmIDto { IsAuthenticated = false };
+            return Task.FromResult(new WhoAmIDto { IsAuthenticated = false });
 
-        return new WhoAmIDto
+        return Task.FromResult(new WhoAmIDto
         {
             IsAuthenticated = true,
             UserId = caller.UserId,
@@ -121,6 +119,6 @@ public class AuthQueries : IAuthQueries
             FullName = caller.FullName,
             Roles = caller.Roles.ToList(),
             Permissions = caller.Permissions.OrderBy(p => p).ToList(),
-        };
+        });
     }
 }

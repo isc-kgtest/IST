@@ -6,7 +6,7 @@
 @using MudBlazor
 
 @inject IAuthCommands _commands
-@inject ISessionResolver _sessionResolver
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <div class="d-flex align-center mb-4 gap-2 flex-wrap">
     <MudIcon Icon="@(IsAdminRole ? Icons.Material.Filled.AdminPanelSettings : Icons.Material.Filled.Group)"
@@ -150,7 +150,7 @@ else
         _saving = true;
         try
         {
-            var session = await _sessionResolver.GetSession();
+            var session = await _session.GetAsync();
             var cmd = new UpdateRolePermissionsCommand(session, Role.Id, _selected.ToArray());
             var res = await _commands.UpdateRolePermissionsAsync(cmd);
             if (res.Status)

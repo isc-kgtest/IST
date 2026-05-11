@@ -1,5 +1,4 @@
 using ActualLab.CommandR.Configuration;
-using ActualLab.Fusion.Authentication;
 using IST.Contracts.Features.Organization;
 using IST.Contracts.Features.Organization.Commands;
 using IST.Core.Entities.Auth;
@@ -15,25 +14,19 @@ public class OrganizationCommands : IOrganizationCommands
     private readonly DbHub<AppDbContext> _dbHub;
     private readonly IOrganizationQueries _queries;
     private readonly ICurrentUserStore _users;
-    private readonly IAuth _auth;
 
     public OrganizationCommands(
         DbHub<AppDbContext> dbHub,
         IOrganizationQueries queries,
-        ICurrentUserStore users,
-        IAuth auth)
+        ICurrentUserStore users)
     {
         _dbHub = dbHub;
         _queries = queries;
         _users = users;
-        _auth = auth;
     }
 
-    private async ValueTask<IDisposable> BeginAuditScopeAsync(Session session, CancellationToken ct)
-    {
-        var caller = await _users.TryFindCallerAsync(_auth, session, ct);
-        return AuditContext.Begin(caller?.UserId);
-    }
+    private IDisposable BeginAuditScope(Session session)
+        => AuditContext.Begin(_users.Find(session)?.UserId);
 
     // ==================== NodeTypes ====================
 
@@ -47,9 +40,9 @@ public class OrganizationCommands : IOrganizationCommands
             return default!;
         }
 
-        await _users.RequirePermissionAsync(_auth, command.Session, cancellationToken, Permissions.OrganizationManage);
+        _ = _users.RequirePermission(command.Session, Permissions.OrganizationManage);
 
-        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
+        using var __auditScope = BeginAuditScope(command.Session);
         await using var db = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         OrganizationNodeTypeEntity entity;
@@ -110,9 +103,9 @@ public class OrganizationCommands : IOrganizationCommands
             return default!;
         }
 
-        await _users.RequirePermissionAsync(_auth, command.Session, cancellationToken, Permissions.OrganizationManage);
+        _ = _users.RequirePermission(command.Session, Permissions.OrganizationManage);
 
-        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
+        using var __auditScope = BeginAuditScope(command.Session);
         await using var db = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var inUse = await db.OrganizationNodes.AnyAsync(n => n.NodeTypeId == command.Id, cancellationToken);
@@ -150,9 +143,9 @@ public class OrganizationCommands : IOrganizationCommands
             return default!;
         }
 
-        await _users.RequirePermissionAsync(_auth, command.Session, cancellationToken, Permissions.OrganizationManage);
+        _ = _users.RequirePermission(command.Session, Permissions.OrganizationManage);
 
-        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
+        using var __auditScope = BeginAuditScope(command.Session);
         await using var db = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         OrganizationNodeEntity entity;
@@ -167,7 +160,7 @@ public class OrganizationCommands : IOrganizationCommands
             db.OrganizationNodes.Add(entity);
         }
 
-        // Защита от циклов: запрещаем переносить узел под собственного потомка.
+        // Защита от циклов.
         if (command.ParentNodeId.HasValue && command.Id.HasValue && command.ParentNodeId.Value != Guid.Empty)
         {
             var parent = await db.OrganizationNodes.AsNoTracking()
@@ -201,7 +194,6 @@ public class OrganizationCommands : IOrganizationCommands
         entity.SortOrder = command.SortOrder;
         entity.IsActive = command.IsActive;
 
-        // Пересчёт Path и Depth.
         if (command.ParentNodeId.HasValue && command.ParentNodeId.Value != Guid.Empty)
         {
             var parent = await db.OrganizationNodes.AsNoTracking()
@@ -245,9 +237,9 @@ public class OrganizationCommands : IOrganizationCommands
             return default!;
         }
 
-        await _users.RequirePermissionAsync(_auth, command.Session, cancellationToken, Permissions.OrganizationManage);
+        _ = _users.RequirePermission(command.Session, Permissions.OrganizationManage);
 
-        using var __auditScope = await BeginAuditScopeAsync(command.Session, cancellationToken);
+        using var __auditScope = BeginAuditScope(command.Session);
         await using var db = await _dbHub.CreateOperationDbContext(cancellationToken);
 
         var entity = await db.OrganizationNodes.Include(n => n.Children)
@@ -268,7 +260,6 @@ public class OrganizationCommands : IOrganizationCommands
         db.OrganizationNodes.Remove(entity);
         await db.SaveChangesAsync(cancellationToken);
 
-        // Дополнительная Fusion-инвалидация для устаревшего списка детей.
         using (Invalidation.Begin())
             _ = _queries.GetChildrenAsync(entity.ParentNodeId, default);
 
