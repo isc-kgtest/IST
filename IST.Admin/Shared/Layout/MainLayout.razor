@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
 @using IST.Admin.Auth
 
+@inject SessionAccessor _session
+
 <MudThemeProvider @ref="@_themeProvider" @bind-IsDarkMode="@_isDarkMode" Theme="MyCustomTheme" />
 
 <AuthorizeView>
@@ -75,6 +77,14 @@
     bool _drawerOpen = true;
     bool _isDarkMode = false;
     private MudThemeProvider _themeProvider = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Раньше всего в жизни circuit'а инициализируем Fusion-сессию из cookie
+        // (SessionAccessor.GetAsync проставит ISessionResolver.Session). Без этого
+        // первый RPC-вызов любой страницы ушёл бы с дефолтной "~"-сессией.
+        await _session.GetAsync();
+    }
 
     void DrawerToggle()
     {

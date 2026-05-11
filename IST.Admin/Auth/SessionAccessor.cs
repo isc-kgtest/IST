@@ -11,23 +11,30 @@ namespace IST.Admin.Auth;
 /// Идентификатор сессии — Guid, выписанный при логине и сохранённый в auth-cookie
 /// как <see cref="ClaimTypes.PrimarySid"/>. Этот же Guid используется как ключ
 /// в серверном <c>ICurrentUserStore</c>.
+///
+/// При первом успешном <see cref="GetAsync"/> также синхронно прописывает
+/// <see cref="ISessionResolver.Session"/> — без этого Fusion-овский RPC-клиент
+/// продолжал бы подмешивать в исходящие команды свою анонимную "~"-сессию.
 /// </summary>
 public sealed class SessionAccessor
 {
     private readonly AuthenticationStateProvider _authStateProvider;
+    private readonly ISessionResolver _sessionResolver;
     private readonly ILogger<SessionAccessor> _log;
     private Session? _cached;
 
-    public SessionAccessor(AuthenticationStateProvider authStateProvider, ILogger<SessionAccessor> log)
+    public SessionAccessor(
+        AuthenticationStateProvider authStateProvider,
+        ISessionResolver sessionResolver,
+        ILogger<SessionAccessor> log)
     {
         _authStateProvider = authStateProvider;
+        _sessionResolver = sessionResolver;
         _log = log;
     }
 
     public async ValueTask<Session> GetAsync(CancellationToken cancellationToken = default)
     {
-        // Не кэшируем результат, если он Session.Default — claims могут появиться
-        // позже в жизни circuit'а (например, после forceLoad с обновлённой cookie).
         if (_cached is { } cached && cached != Session.Default)
             return cached;
 
@@ -47,6 +54,20 @@ public sealed class SessionAccessor
 
         var session = new Session(sid);
         _cached = session;
+
+        // КЛЮЧЕВОЕ: сразу прописываем session в Fusion ISessionResolver.
+        // Иначе RPC-клиент подсунет в command.Session свою анонимную "~"-сессию,
+        // и сервер не найдёт CallerContext в store.
+        try
+        {
+            _sessionResolver.Session = session;
+            _log.LogInformation("SessionAccessor: bound ISessionResolver.Session='{Sid}'", session.Id);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "SessionAccessor: failed to set ISessionResolver.Session (ignored).");
+        }
+
         return session;
     }
 }
