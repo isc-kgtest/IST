@@ -77,19 +77,26 @@
             <MudNavLink Href="/authorities" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AccountBalance">
                 @Lang.L("nav_authorities")
             </MudNavLink>
-            <MudNavLink Href="/organization" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AccountTree">
-                @Lang.L("nav_organization")
-            </MudNavLink>
             <MudNavLink Href="/reports" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PieChart">
                 @Lang.L("nav_reports")
             </MudNavLink>
             <MudNavLink Href="/exchange" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SyncAlt">
                 @Lang.L("nav_exchange")
             </MudNavLink>
+
+            @* ---------- Системные разделы ---------- *@
+            <MudDivider Class="my-2" />
+            <div class="px-4 pb-2 pt-2">
+                <MudText Typo="Typo.caption" Color="Color.Dark">@Lang.L("nav_system")</MudText>
+            </div>
+
+            <MudNavLink Href="/organization" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AccountTree">
+                @Lang.L("nav_organization")
+            </MudNavLink>
             <MudNavLinkAuthRole Href="/authadminpage" Icon="@Icons.Material.Filled.AdminPanelSettings" Roles="admin">
                 @Lang.L("nav_access")
             </MudNavLinkAuthRole>
-            <MudNavGroup Title="@Lang.L("nav_audit")" Icon="@Icons.Material.Filled.Security" Expanded="false">
+            <MudNavGroup Title="@Lang.T("Безопасность", "Коопсуздук")" Icon="@Icons.Material.Filled.Security" Expanded="false">
                 <MudNavLink Href="/security/permissions" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.VpnKey">
                     @Lang.L("nav_permissions")
                 </MudNavLink>
