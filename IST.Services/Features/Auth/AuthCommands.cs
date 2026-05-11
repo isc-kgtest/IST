@@ -8,6 +8,7 @@ using IST.Infrastructure.Security;
 using IST.Services.Features.Audit;
 using IST.Services.Features.Auth.Authentication;
 using MapsterMapper;
+using Microsoft.Extensions.Logging;
 
 namespace IST.Services.Features.Auth;
 
@@ -18,19 +19,22 @@ public class AuthCommands : IAuthCommands
     private readonly IMapper _mapper;
     private readonly ICurrentUserStore _users;
     private readonly IAuditService _audit;
+    private readonly ILogger<AuthCommands> _log;
 
     public AuthCommands(
         DbHub<AppDbContext> dbHub,
         IAuthQueries queries,
         IMapper mapper,
         ICurrentUserStore users,
-        IAuditService audit)
+        IAuditService audit,
+        ILogger<AuthCommands> log)
     {
         _dbHub = dbHub;
         _queries = queries;
         _mapper = mapper;
         _users = users;
         _audit = audit;
+        _log = log;
     }
 
     /// <summary>
@@ -49,6 +53,9 @@ public class AuthCommands : IAuthCommands
     {
         if (Invalidation.IsActive)
             return default!;
+
+        _log.LogInformation("LoginAsync: incoming command.Session.Id='{Sid}', login='{Login}'",
+            command.Session.Id, command.Login);
 
         if (command.Session == Session.Default || string.IsNullOrEmpty(command.Session.Id))
             return new ResponseDTO<SessionUserDto>
@@ -182,6 +189,10 @@ public class AuthCommands : IAuthCommands
             writableUser.LastDateLogin = DateTime.UtcNow;
             await writeCtx.SaveChangesAsync(cancellationToken);
         }
+
+        _log.LogInformation(
+            "LoginAsync: storing CallerContext under Session.Id='{Sid}' for user '{Login}' (UserId={UserId})",
+            command.Session.Id, user.Login, user.Id);
 
         // Связываем Session с CallerContext в памяти. Сессия выписывается HTTP-эндпоинтом
         // и параллельно идёт в cookie (PrimarySid) и в этот RPC-вызов.
@@ -659,6 +670,8 @@ public class AuthCommands : IAuthCommands
             _ = _queries.GetAllRolesAsync(default);
             return default!;
         }
+
+        _log.LogInformation("CreateRoleAsync: incoming command.Session.Id='{Sid}'", command.Session.Id);
 
         _ = _users.RequirePermission(command.Session, Permissions.RolesManage);
 

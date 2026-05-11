@@ -41,10 +41,15 @@ public static class AuthEndpoints
     private static async Task<IResult> HandleLogin(
         HttpContext httpContext,
         LoginRequest request,
-        IAuthCommands authCommands)
+        IAuthCommands authCommands,
+        ILoggerFactory loggerFactory)
     {
+        var log = loggerFactory.CreateLogger("AuthEndpoints");
+
         // 1) Новый Session-id = новый UUID. Один и тот же для RPC и для cookie.
         var session = new Session(Guid.NewGuid().ToString("N"));
+        log.LogInformation("HandleLogin: created Session.Id='{Sid}' for login='{Login}'",
+            session.Id, request.Login);
 
         var ip = httpContext.Connection.RemoteIpAddress?.ToString();
         var ua = httpContext.Request.Headers.UserAgent.ToString();
@@ -57,6 +62,8 @@ public static class AuthEndpoints
             RequiredPermission = Permissions.AdminAccess,
         };
         var res = await authCommands.LoginAsync(command);
+        log.LogInformation("HandleLogin: LoginAsync returned Status={Status} for Session.Id='{Sid}'",
+            res.Status, session.Id);
 
         if (!res.Status || res.Data is null)
         {
