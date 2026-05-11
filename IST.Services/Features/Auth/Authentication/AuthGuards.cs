@@ -10,14 +10,22 @@ namespace IST.Services.Features.Auth.Authentication;
 /// </summary>
 public static class AuthGuards
 {
+    /// <summary>
+    /// Таймаут на резолв сессии через Fusion <c>IAuth</c>. На сервере IAuth
+    /// в текущей конфигурации иногда зависает (роутится через RPC сам на себя).
+    /// Лучше быстро отвалиться и считать актора неизвестным, чем висеть на каждой
+    /// команде.
+    /// </summary>
+    private static readonly TimeSpan AuthLookupTimeout = TimeSpan.FromMilliseconds(1500);
+
     public static async ValueTask<CallerContext> RequireAuthenticatedAsync(
         this ICurrentUserStore store, IAuth auth, Session session, CancellationToken ct = default)
     {
-        var user = await auth.GetUser(session, ct).ConfigureAwait(false);
-        if (user is null || !Guid.TryParse(user.Id, out var userId))
+        var userId = await TryResolveUserIdAsync(auth, session, ct).ConfigureAwait(false);
+        if (userId is null)
             throw AuthorizationException.Unauthenticated();
 
-        var caller = store.Find(userId);
+        var caller = store.Find(userId.Value);
         if (caller is null)
             throw AuthorizationException.Unauthenticated();
         return caller;
@@ -66,14 +74,34 @@ public static class AuthGuards
     /// <summary>
     /// Soft-вариант: возвращает <see cref="CallerContext"/> если он есть в реестре,
     /// либо null. Не бросает исключений — удобно для query-методов, отдающих
-    /// «AccessDenied»-DTO вместо ошибки.
+    /// «AccessDenied»-DTO вместо ошибки, и для аудита (актор неизвестен → null).
     /// </summary>
     public static async ValueTask<CallerContext?> TryFindCallerAsync(
         this ICurrentUserStore store, IAuth auth, Session session, CancellationToken ct = default)
     {
-        var user = await auth.GetUser(session, ct).ConfigureAwait(false);
-        if (user is null || !Guid.TryParse(user.Id, out var userId))
+        var userId = await TryResolveUserIdAsync(auth, session, ct).ConfigureAwait(false);
+        return userId is null ? null : store.Find(userId.Value);
+    }
+
+    /// <summary>
+    /// Безопасный резолв userId из Fusion-сессии. Никогда не висит дольше
+    /// <see cref="AuthLookupTimeout"/>, никогда не бросает исключений — возвращает
+    /// null при таймауте, ошибке, отсутствии пользователя или невалидном Guid.
+    /// </summary>
+    private static async ValueTask<Guid?> TryResolveUserIdAsync(IAuth auth, Session session, CancellationToken ct)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(AuthLookupTimeout);
+            var user = await auth.GetUser(session, cts.Token).ConfigureAwait(false);
+            if (user is null || !Guid.TryParse(user.Id, out var userId))
+                return null;
+            return userId;
+        }
+        catch
+        {
             return null;
-        return store.Find(userId);
+        }
     }
 }
