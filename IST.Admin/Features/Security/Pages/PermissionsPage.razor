@@ -1,0 +1,125 @@
+@page "/security/permissions"
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Blazor
+@using IST.Admin.Features.Security.Components
+@using IST.Contracts.Features.Auth
+@using IST.Shared.DTOs.Auth
+@using MudBlazor
+
+@attribute [Authorize]
+
+@inherits ComputedStateComponent<PermissionsPage.Model>
+
+@inject IAuthQueries _queries
+
+<PageTitle>Привилегии ролей</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-2"><b>Привилегии ролей</b></MudText>
+<MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-4">
+    Назначение гранулярных прав ролям. Один пользователь может иметь несколько ролей —
+    его итоговый набор привилегий — объединение всех. Роль «admin» всегда обладает всеми
+    привилегиями (защита от случайного выхода админа за пределы своих прав).
+</MudText>
+
+@{
+    var model = State.ValueOrDefault;
+}
+
+@if (model is null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (model.AllPermissions.Count == 0)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">
+        <b>Привилегии не созданы в БД.</b><br />
+        Это значит, что seeder при старте Server'а либо ещё не отработал, либо упал с ошибкой.
+        Проверьте таблицу <code>access_control.permissions</code> и логи запуска Server'а.
+    </MudAlert>
+}
+else if (model.Roles.Count == 0)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-3">
+        Не найдено ни одной роли. Создайте хотя бы одну роль на странице
+        <MudLink Href="/authadminpage">Управление доступом</MudLink>, прежде чем
+        назначать привилегии.
+    </MudAlert>
+}
+else
+{
+    @if (model.Roles.Count == 1)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+            В системе пока только роль <b>admin</b>. Чтобы создавать роли с
+            ограниченным набором прав (например, «editor», «auditor») —
+            перейдите в <MudLink Href="/authadminpage">Управление доступом → Роли</MudLink>,
+            добавьте роль, затем вернитесь сюда и назначьте ей нужные привилегии.
+        </MudAlert>
+    }
+
+    <MudPaper Elevation="1" Class="pa-4">
+        <MudTabs Outlined="true" Rounded="true" PanelClass="pa-4" KeepPanelsAlive="true">
+            @foreach (var role in model.Roles)
+            {
+                <MudTabPanel Text="@role.Name">
+                    <RolePermissionsEditor Role="role"
+                                           AllPermissions="model.AllPermissions"
+                                           AssignedIds="@(model.AssignedByRole.GetValueOrDefault(role.Id, new()))"
+                                           OnSaved="@RefreshAsync" />
+                </MudTabPanel>
+            }
+        </MudTabs>
+    </MudPaper>
+
+    <MudExpansionPanels Class="mt-4">
+        <MudExpansionPanel Text="@($"Все привилегии в системе ({model.AllPermissions.Count})")">
+            <MudList T="PermissionDto" Dense="true">
+                @foreach (var group in model.AllPermissions.GroupBy(p => p.Category ?? "Прочее").OrderBy(g => g.Key))
+                {
+                    <MudListSubheader>@group.Key</MudListSubheader>
+                    @foreach (var p in group.OrderBy(p => p.Code))
+                    {
+                        <MudListItem T="PermissionDto" Value="@p" Icon="@Icons.Material.Filled.VpnKey">
+                            <MudText Typo="Typo.body2"><b>@p.Code</b></MudText>
+                            @if (!string.IsNullOrEmpty(p.Description))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@p.Description</MudText>
+                            }
+                        </MudListItem>
+                    }
+                }
+            </MudList>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+}
+
+@code {
+    public sealed class Model
+    {
+        public List<RoleDto> Roles { get; init; } = new();
+        public List<PermissionDto> AllPermissions { get; init; } = new();
+        public Dictionary<Guid, List<Guid>> AssignedByRole { get; init; } = new();
+        public static readonly Model Empty = new();
+    }
+
+    protected override ComputedState<Model>.Options GetStateOptions()
+        => new() { InitialValue = Model.Empty, UpdateDelayer = FixedDelayer.Get(0) };
+
+    protected override async Task<Model> ComputeState(CancellationToken cancellationToken)
+    {
+        var roles = (await _queries.GetAllRolesAsync(cancellationToken))
+            .OrderBy(r => r.Name)
+            .ToList();
+        var allPerms = await _queries.GetAllPermissionsAsync(cancellationToken);
+
+        var assigned = new Dictionary<Guid, List<Guid>>();
+        foreach (var role in roles)
+        {
+            assigned[role.Id] = await _queries.GetPermissionIdsByRoleAsync(role.Id, cancellationToken);
+        }
+
+        return new Model { Roles = roles, AllPermissions = allPerms, AssignedByRole = assigned };
+    }
+
+    private async Task RefreshAsync() => await State.Recompute();
+}

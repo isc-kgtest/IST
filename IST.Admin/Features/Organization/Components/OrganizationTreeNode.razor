@@ -1,0 +1,106 @@
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Blazor
+@using IST.Contracts.Features.Organization
+@using IST.Shared.DTOs.Organization
+@using MudBlazor
+
+@inherits ComputedStateComponent<List<OrganizationNodeDto>>
+
+@inject IOrganizationQueries _queries
+
+@if (State.ValueOrDefault is { } children && children.Count > 0)
+{
+    <MudList T="OrganizationNodeDto" Dense="true">
+        @foreach (var node in children)
+        {
+            <MudListItem T="OrganizationNodeDto" Value="@node">
+                <ChildContent>
+                    <div class="d-flex align-center gap-2">
+                        <MudIconButton Icon="@(_expanded.Contains(node.Id) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                                       Size="Size.Small"
+                                       Disabled="@(node.ChildrenCount == 0)"
+                                       OnClick="@(() => Toggle(node.Id))" />
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@node.NodeTypeName</MudChip>
+                        <MudText Typo="Typo.body1" Class="@(node.IsActive ? "" : "mud-text-disabled")">
+                            <b>@node.Name</b>
+                            @if (!string.IsNullOrEmpty(node.Code))
+                            {
+                                <span style="opacity:0.6;"> (@node.Code)</span>
+                            }
+                        </MudText>
+                        <MudSpacer />
+                        <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" Color="Color.Success"
+                                       OnClick="@(() => OnAddChild.InvokeAsync(node))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       OnClick="@(() => OnEdit.InvokeAsync(node))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                       OnClick="@(() => OnDelete.InvokeAsync(node))" />
+                    </div>
+                    @if (_expanded.Contains(node.Id))
+                    {
+                        <div style="padding-left: 32px;">
+                            @* При любом сохранении/удалении на странице верхний RefreshKey
+                               инкрементируется → поддеревний компонент пересоздаётся,
+                               ComputeState вызывается заново, подтягивая свежие данные. *@
+                            <OrganizationTreeNode @key="(node.Id, RefreshKey)"
+                                                  ParentId="@node.Id"
+                                                  NodeTypes="NodeTypes"
+                                                  RefreshKey="RefreshKey"
+                                                  OnRefresh="OnRefresh"
+                                                  OnEdit="OnEdit"
+                                                  OnAddChild="OnAddChild"
+                                                  OnDelete="OnDelete" />
+                        </div>
+                    }
+                </ChildContent>
+            </MudListItem>
+        }
+    </MudList>
+}
+else if (State.HasValue)
+{
+    @if (ParentId is null)
+    {
+        <MudAlert Severity="Severity.Info">Дерево пусто. Добавьте корневой узел.</MudAlert>
+    }
+}
+else
+{
+    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+}
+
+@code {
+    [Parameter] public Guid? ParentId { get; set; }
+    [Parameter] public List<OrganizationNodeTypeDto> NodeTypes { get; set; } = new();
+    [Parameter] public int RefreshKey { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+    [Parameter] public EventCallback<OrganizationNodeDto> OnEdit { get; set; }
+    [Parameter] public EventCallback<OrganizationNodeDto> OnAddChild { get; set; }
+    [Parameter] public EventCallback<OrganizationNodeDto> OnDelete { get; set; }
+
+    private HashSet<Guid> _expanded = new();
+    private int _lastSeenKey = -1;
+
+    protected override ComputedState<List<OrganizationNodeDto>>.Options GetStateOptions()
+        => new() { InitialValue = new(), UpdateDelayer = FixedDelayer.Get(0) };
+
+    protected override Task<List<OrganizationNodeDto>> ComputeState(CancellationToken cancellationToken)
+        => _queries.GetChildrenAsync(ParentId, cancellationToken);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        if (_lastSeenKey != RefreshKey)
+        {
+            _lastSeenKey = RefreshKey;
+            if (State is not null)
+                await State.Recompute();
+        }
+    }
+
+    private void Toggle(Guid id)
+    {
+        if (!_expanded.Add(id)) _expanded.Remove(id);
+        StateHasChanged();
+    }
+}

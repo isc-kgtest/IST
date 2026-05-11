@@ -9,4 +9,5 @@ public partial class RoleEntity : BaseEntity
     public string? Description { get; set; }
 
     public ICollection<UserRolesEntity> UserRoles { get; set; } = new List<UserRolesEntity>();
+    public ICollection<RolePermissionEntity> RolePermissions { get; set; } = new List<RolePermissionEntity>();
 }

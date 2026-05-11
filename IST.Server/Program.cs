@@ -15,7 +15,10 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<IST.Infrastructure.Data.AppDbContext>();
     // Ensure database is created/migrated (optional but good practice for dev)
     context.Database.Migrate();
-    
+
+    // Seed permissions + admin role bindings (идемпотентно).
+    await IST.Infrastructure.Data.SecuritySeeder.SeedAsync(context);
+
     // Seed NSI
     await IST.Infrastructure.Data.DictionarySeeder.SeedNsiDictionariesAsync(context);
 }

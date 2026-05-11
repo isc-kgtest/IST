@@ -1,0 +1,174 @@
+@page "/organization"
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Blazor
+@using IST.Admin.Features.Organization.Components
+@using IST.Contracts.Features.Organization
+@using IST.Contracts.Features.Organization.Commands
+@using IST.Shared.DTOs.Organization
+@using MudBlazor
+
+@attribute [Authorize]
+
+@inherits ComputedStateComponent<OrganizationPage.Model>
+
+@inject IOrganizationQueries _queries
+@inject IOrganizationCommands _commands
+@inject IST.Admin.Auth.SessionAccessor _session
+
+<PageTitle>Оргструктура</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-2"><b>Оргструктура</b></MudText>
+<MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-4">
+    Дерево узлов (область → район → город → организация → отдел). Типы узлов и их иерархия настраиваются ниже.
+</MudText>
+
+<MudTabs Outlined="true" Rounded="true" PanelClass="pa-4">
+    <MudTabPanel Text="Дерево узлов" Icon="@Icons.Material.Filled.AccountTree">
+        @if (State.ValueOrDefault is { } model)
+        {
+            <div class="d-flex justify-end mb-3">
+                <MudButton Variant="Variant.Filled" Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Disabled="@(model.NodeTypes.Count == 0)"
+                           OnClick="@(() => OpenEditNode(parentId: null))">
+                    Добавить корневой узел
+                </MudButton>
+            </div>
+            @if (model.NodeTypes.Count == 0)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-3">
+                    Нет ни одного типа узла. Сначала создайте тип во вкладке «Типы узлов».
+                </MudAlert>
+            }
+            <OrganizationTreeNode @key="_treeRefreshKey"
+                                  ParentId="@(null as Guid?)"
+                                  NodeTypes="model.NodeTypes"
+                                  RefreshKey="_treeRefreshKey"
+                                  OnRefresh="@(() => RefreshAsync())"
+                                  OnEdit="@(n => OpenEditNode(n))"
+                                  OnAddChild="@(n => OpenEditNode(parent: n))"
+                                  OnDelete="@(n => DeleteNodeAsync(n))" />
+        }
+        else
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="Типы узлов" Icon="@Icons.Material.Filled.Category">
+        @if (State.ValueOrDefault is { } typesModel)
+        {
+            <div class="d-flex justify-end mb-3">
+                <MudButton Variant="Variant.Filled" Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => OpenEditNodeType())">
+                    Добавить тип
+                </MudButton>
+            </div>
+            <MudDataGrid T="OrganizationNodeTypeDto" Items="@typesModel.NodeTypes" Dense="true" Hover="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.SortOrder" Title="#" />
+                    <PropertyColumn Property="x => x.Icon" Title="Иконка" />
+                    <PropertyColumn Property="x => x.Name" Title="Название" />
+                    <PropertyColumn Property="x => x.Code" Title="Код" />
+                    <PropertyColumn Property="x => x.Level" Title="Уровень" />
+                    <PropertyColumn Property="x => x.Description" Title="Описание" />
+                    <TemplateColumn Title="Действия" Sortable="false" Filterable="false">
+                        <CellTemplate>
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                           OnClick="@(() => OpenEditNodeType(context.Item))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                           OnClick="@(() => DeleteNodeTypeAsync(context.Item))" />
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+            </MudDataGrid>
+        }
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    public sealed class Model
+    {
+        public List<OrganizationNodeTypeDto> NodeTypes { get; init; } = new();
+        public static readonly Model Empty = new();
+    }
+
+    protected override ComputedState<Model>.Options GetStateOptions()
+        => new() { InitialValue = Model.Empty, UpdateDelayer = FixedDelayer.Get(0) };
+
+    protected override async Task<Model> ComputeState(CancellationToken cancellationToken)
+    {
+        var types = await _queries.GetNodeTypesAsync(cancellationToken);
+        return new Model { NodeTypes = types };
+    }
+
+    private int _treeRefreshKey = 0;
+
+    private async Task RefreshAsync()
+    {
+        _treeRefreshKey++;
+        await State.Recompute();
+        StateHasChanged();
+    }
+
+    // ===== Node dialogs =====
+
+    private async Task OpenEditNode(OrganizationNodeDto? node = null, OrganizationNodeDto? parent = null, Guid? parentId = null)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Node"] = node,
+            ["ParentId"] = node?.ParentNodeId ?? parent?.Id ?? parentId,
+            ["NodeTypes"] = State.ValueOrDefault?.NodeTypes ?? new(),
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var title = node is null ? "Новый узел" : $"Редактирование «{node.Name}»";
+        var dialog = await _dialogService.ShowAsync<NodeEditorDialog>(title, parameters, options);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled) await RefreshAsync();
+    }
+
+    private async Task DeleteNodeAsync(OrganizationNodeDto node)
+    {
+        var ok = await _js.InvokeAsync<bool>("confirm", $"Удалить узел «{node.Name}»? Подузлы тоже исчезнут.");
+        if (!ok) return;
+        try
+        {
+            var session = await _session.GetAsync();
+            var res = await _commands.DeleteNodeAsync(new DeleteNodeCommand(session, node.Id));
+            if (res.Status) { _snackbar.Add("Узел удалён.", Severity.Success); await RefreshAsync(); }
+            else _snackbar.Add(res.StatusMessage ?? "Ошибка.", Severity.Warning);
+        }
+        catch (Exception ex) { _snackbar.Add($"Ошибка: {ex.Message}", Severity.Error); }
+    }
+
+    // ===== NodeType dialogs =====
+
+    private async Task OpenEditNodeType(OrganizationNodeTypeDto? type = null)
+    {
+        var parameters = new DialogParameters
+        {
+            ["NodeType"] = type,
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var title = type is null ? "Новый тип узла" : $"Редактирование «{type.Name}»";
+        var dialog = await _dialogService.ShowAsync<NodeTypeEditorDialog>(title, parameters, options);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled) await RefreshAsync();
+    }
+
+    private async Task DeleteNodeTypeAsync(OrganizationNodeTypeDto type)
+    {
+        var ok = await _js.InvokeAsync<bool>("confirm", $"Удалить тип узла «{type.Name}»? Это невозможно если тип уже используется.");
+        if (!ok) return;
+        try
+        {
+            var session = await _session.GetAsync();
+            var res = await _commands.DeleteNodeTypeAsync(new DeleteNodeTypeCommand(session, type.Id));
+            if (res.Status) { _snackbar.Add("Тип удалён.", Severity.Success); await RefreshAsync(); }
+            else _snackbar.Add(res.StatusMessage ?? "Ошибка.", Severity.Warning);
+        }
+        catch (Exception ex) { _snackbar.Add($"Ошибка: {ex.Message}", Severity.Error); }
+    }
+}

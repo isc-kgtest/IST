@@ -1,0 +1,17 @@
+@inject IST.Admin.Services.LanguageService Lang
+
+<button type="button" class="pill" @onclick="OnClick" aria-label="Сменить язык">
+    <span class="pill-bg @(Lang.IsKg ? "kg" : "ru")"></span>
+    <span class="opt @(Lang.IsKg ? "muted" : "active")">RU</span>
+    <span class="opt @(Lang.IsKg ? "active" : "muted")">KG</span>
+</button>
+
+@code {
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private async Task OnClick()
+    {
+        await Lang.ToggleAsync();
+        if (OnChanged.HasDelegate) await OnChanged.InvokeAsync();
+    }
+}

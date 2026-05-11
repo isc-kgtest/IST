@@ -1,0 +1,60 @@
+@using ActualLab.Fusion
+@using ActualLab.Fusion.Blazor
+@using IST.Contracts.Features.Auth
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.JSInterop
+
+@inherits ComputedStateComponent<bool>
+
+@inject IUserPresence _presence
+@inject SessionAccessor _session
+
+@* Невидимый компонент. Подписывается на серверный IUserPresence через Fusion
+   compute-graph: когда админ снимает сессию текущего пользователя
+   (деактивация, удаление, смена ролей, ресет пароля) — сервер инвалидирует
+   IsAuthenticatedAsync, инвалидация прилетает на клиента, мы видим false
+   и через authHelper.logout вылогиниваемся. *@
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private bool _alreadyKicked;
+
+    protected override ComputedState<bool>.Options GetStateOptions()
+        => new() { InitialValue = true, UpdateDelayer = FixedDelayer.Get(0) };
+
+    protected override async Task<bool> ComputeState(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var session = await _session.GetAsync(cancellationToken);
+            return await _presence.IsAuthenticatedAsync(session, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Нормальная отмена при навигации (forceLoad после login,
+            // переход между circuit'ами). Возвращаем true чтобы НЕ
+            // триггернуть ложный logout.
+            return true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (_alreadyKicked) return;
+        if (!State.HasValue) return;
+        if (State.Value) return; // сервер подтверждает сессию — всё ок
+
+        // Сервер сказал false. Если cookie на клиенте всё ещё помечает нас
+        // как авторизованных — значит сессию принудительно сняли, и мы
+        // обязаны выйти из системы.
+        if (AuthState is null) return;
+        var auth = await AuthState;
+        if (auth.User.Identity?.IsAuthenticated != true) return;
+
+        _alreadyKicked = true;
+        await _js.InvokeVoidAsync("authHelper.logout");
+    }
+}

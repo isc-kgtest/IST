@@ -18,4 +18,6 @@ public partial class SessionUserDto
     public bool IsActive { get; set; }
     [MemoryPackOrder(5)]
     public List<string> Roles { get; set; } = new();
+    [MemoryPackOrder(6)]
+    public List<string> Permissions { get; set; } = new();
 }

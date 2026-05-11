@@ -6,6 +6,7 @@
 
 @inject IDictionaryCommands _dictCommands
 @inject ISnackbar _snackbar
+@inject IST.Admin.Auth.SessionAccessor _session
 
 <MudPaper Style="min-width:480px;" Elevation="0">
     <EditForm Model="@_request" OnValidSubmit="SubmitForm">
@@ -94,7 +95,7 @@
         _p = true;
         try
         {
-            var res = await _dictCommands.CreateDictionaryAsync(new CreateDictionaryCommand(Session.Default, _request));
+            var res = await _dictCommands.CreateDictionaryAsync(new CreateDictionaryCommand(await _session.GetAsync(), _request));
             if (res.Status && res.Data != null)
             {
                 _snackbar.Add($"Справочник создан: {res.Data.Name}", Severity.Success);

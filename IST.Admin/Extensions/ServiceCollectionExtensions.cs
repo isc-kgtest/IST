@@ -1,23 +1,25 @@
 using ActualLab.Fusion;
 using ActualLab.Fusion.Authentication;
 using ActualLab.Fusion.Blazor;
-using ActualLab.Fusion.Blazor.Authentication;
 using ActualLab.Rpc;
 using IST.Admin.Auth;
+using IST.Contracts.Features.Audit;
 using IST.Contracts.Features.Auth;
 using IST.Contracts.Features.Dictionaries;
 using IST.Contracts.Features.Dictionaries.Commands;
+using IST.Contracts.Features.Organization;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Components.Authorization;
 using System.Threading.RateLimiting;
 
 namespace IST.Admin.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddAuthenticationAndAuthorization(this IServiceCollection services, IWebHostEnvironment env)
+    public static IServiceCollection AddAuthenticationAndAuthorization(
+        this IServiceCollection services, IWebHostEnvironment env)
     {
         services.AddCascadingAuthenticationState();
+
         services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(options =>
             {
@@ -28,7 +30,7 @@ public static class ServiceCollectionExtensions
                 options.SlidingExpiration = true;
                 options.Cookie.Name = "ISC.Auth";
                 options.Cookie.HttpOnly = true;
-                options.Cookie.SameSite = SameSiteMode.Strict;
+                options.Cookie.SameSite = SameSiteMode.Lax;
 
                 options.Cookie.SecurePolicy = env.IsDevelopment()
                     ? CookieSecurePolicy.SameAsRequest
@@ -41,23 +43,20 @@ public static class ServiceCollectionExtensions
             options.AddPolicy("ContentEditor", policy => policy.RequireRole("admin", "editor"));
         });
 
-        // HttpContext доступ для AuthenticationStateProvider
         services.AddHttpContextAccessor();
 
-        // Кастомный AuthenticationStateProvider (читает claims из cookie)
-        services.AddScoped<AuthenticationStateProvider, FusionAuthenticationStateProvider>();
+        // Встроенного Blazor-провайдера достаточно — он сам читает claims из cookie
+        // в circuit. Кастомный, читающий IHttpContextAccessor, ломается в circuit'е
+        // (HttpContext там null).
 
         return services;
     }
 
-    // Вынесли Rate Limiting в отдельный метод для чистоты
     public static IServiceCollection AddRateLimitingConfiguration(this IServiceCollection services)
     {
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
-            // Auth endpoints: 10 requests per minute per IP
             options.AddPolicy("auth", context =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -72,33 +71,38 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddApplicationServices(this IServiceCollection services, IConfiguration config)
+    public static IServiceCollection AddApplicationServices(
+        this IServiceCollection services, IConfiguration config)
     {
         var fusion = services.AddFusion();
 
         var rpcUrl = config["RpcServer:Url"] ?? "ws://localhost:5000";
-
-        // WebSocket-клиент поднимаем через Fusion-ную RPC-шину (fusion.Rpc),
-        // а не через отдельный services.AddRpc(). Иначе получаются две RPC-
-        // инфраструктуры: одна без Fusion-перехватчика, и compute-клиенты
-        // падают на fallback AutoInvalidationDelay (~1 с polling).
         fusion.Rpc.AddWebSocketClient(rpcUrl);
 
-        // Клиент IAuth нужен для правильной работы Session/аутентификации
+        // КРИТИЧНО: AddAuthClient регистрирует Fusion ISessionResolver. Без него
+        // RPC-pipeline подмешивает в каждый вызов Session.Default или случайную
+        // "~"-сессию, и сервер не находит CallerContext в store по той сессии,
+        // которую мы кладём в cookie при логине.
         fusion.AddAuthClient();
 
-        // Клиенты Queries и Commands.
+        // Fusion-клиенты для всех RPC-сервисов.
+        fusion.AddClient<IUserPresence>();
+
         fusion.AddClient<IAuthQueries>();
         fusion.AddClient<IAuthCommands>();
-        
+        fusion.AddClient<IAuditQueries>();
         fusion.AddClient<IDictionaryQueries>();
         fusion.AddClient<IDictionaryCommands>();
+        fusion.AddClient<IOrganizationQueries>();
+        fusion.AddClient<IOrganizationCommands>();
 
-        // Blazor-интеграция Fusion (CircuitHub и т.п.) + AuthN на Blazor-стороне.
+        // Blazor-интеграция Fusion (CircuitHub, ComputedState и т.п.) — БЕЗ AddAuthentication.
         fusion.AddBlazor();
 
-        // Commander для диспатча команд
         services.AddCommander();
+
+        // Поставщик Session для компонентов: читает PrimarySid из cookie.
+        services.AddScoped<SessionAccessor>();
 
         return services;
     }
