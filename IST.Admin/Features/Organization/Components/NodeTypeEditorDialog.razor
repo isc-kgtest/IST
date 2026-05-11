@@ -1,0 +1,82 @@
+@using ActualLab.Fusion
+@using IST.Contracts.Features.Organization
+@using IST.Contracts.Features.Organization.Commands
+@using IST.Shared.DTOs.Organization
+@using MudBlazor
+
+@inject IOrganizationCommands _commands
+@inject Session _session
+
+<MudStack Spacing="3">
+    <MudTextField @bind-Value="_code" Label="Код (короткий, латиница)" Variant="Variant.Outlined" Required="true" />
+    <MudTextField @bind-Value="_name" Label="Название" Variant="Variant.Outlined" Required="true" />
+    <MudTextField @bind-Value="_description" Label="Описание" Variant="Variant.Outlined" Lines="2" />
+    <MudNumericField @bind-Value="_level" Label="Логический уровень (для подсказки)" Variant="Variant.Outlined" />
+    <MudNumericField @bind-Value="_sortOrder" Label="Порядок отображения" Variant="Variant.Outlined" />
+    <MudTextField @bind-Value="_icon" Label="Иконка (Material name, например 'Apartment')" Variant="Variant.Outlined" />
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true">@_error</MudAlert>
+    }
+</MudStack>
+
+<MudDialogActions>
+    <MudButton OnClick="Cancel">Отмена</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync"
+               Disabled="@(_saving || string.IsNullOrWhiteSpace(_name) || string.IsNullOrWhiteSpace(_code))">
+        @(_saving ? "Сохраняем..." : "Сохранить")
+    </MudButton>
+</MudDialogActions>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public OrganizationNodeTypeDto? NodeType { get; set; }
+
+    private string _code = string.Empty;
+    private string _name = string.Empty;
+    private string? _description;
+    private int _level;
+    private int _sortOrder;
+    private string? _icon;
+    private bool _saving;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        if (NodeType is not null)
+        {
+            _code = NodeType.Code;
+            _name = NodeType.Name;
+            _description = NodeType.Description;
+            _level = NodeType.Level;
+            _sortOrder = NodeType.SortOrder;
+            _icon = NodeType.Icon;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task SaveAsync()
+    {
+        if (_saving) return;
+        _saving = true;
+        _error = null;
+        try
+        {
+            var cmd = new SaveNodeTypeCommand(
+                Session: _session,
+                Id: NodeType?.Id,
+                Code: _code, Name: _name, Description: _description,
+                Level: _level, SortOrder: _sortOrder, Icon: _icon);
+            var res = await _commands.SaveNodeTypeAsync(cmd);
+            if (res.Status)
+            {
+                _snackbar.Add("Тип узла сохранён.", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else _error = res.StatusMessage ?? "Ошибка";
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+}

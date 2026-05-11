@@ -4,6 +4,7 @@ using IST.Core.Entities.Audit;
 using IST.Core.Entities.Auth;
 using IST.Core.Entities.BaseEntities;
 using IST.Core.Entities.Dictionaries;
+using IST.Core.Entities.Organization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Linq.Expressions;
@@ -29,6 +30,9 @@ public class AppDbContext : DbContextBase, IAppDbContext
     public DbSet<PermissionEntity> Permissions { get; set; } = null!;
     public DbSet<RolePermissionEntity> RolePermissions { get; set; } = null!;
     public DbSet<SecurityAuditLogEntity> SecurityAuditLogs { get; set; } = null!;
+
+    public DbSet<OrganizationNodeTypeEntity> OrganizationNodeTypes { get; set; } = null!;
+    public DbSet<OrganizationNodeEntity> OrganizationNodes { get; set; } = null!;
 
     public DbSet<DictionaryEntity> Dictionaries { get; set; } = null!;
     public DbSet<DictionaryFieldEntity> DictionaryFields { get; set; } = null!;

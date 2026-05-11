@@ -25,6 +25,10 @@ public static class Permissions
     // Аудит
     public const string AuditView = "audit.view";
 
+    // Оргструктура
+    public const string OrganizationView = "organization.view";
+    public const string OrganizationManage = "organization.manage";
+
     // Доступ к порталам
     public const string AdminAccess = "admin.access";
 
@@ -44,6 +48,9 @@ public static class Permissions
         new PermissionDescriptor(DictionariesManage,  "Управление справочниками",       "Dictionaries"),
 
         new PermissionDescriptor(AuditView,           "Просмотр журнала аудита",        "Audit"),
+
+        new PermissionDescriptor(OrganizationView,    "Просмотр оргструктуры",          "Organization"),
+        new PermissionDescriptor(OrganizationManage,  "Управление оргструктурой",       "Organization"),
 
         new PermissionDescriptor(AdminAccess,         "Доступ к административной панели", "Portals"),
     };

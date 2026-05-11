@@ -8,6 +8,7 @@ using IST.Contracts.Features.Audit;
 using IST.Contracts.Features.Auth;
 using IST.Contracts.Features.Dictionaries;
 using IST.Contracts.Features.Dictionaries.Commands;
+using IST.Contracts.Features.Organization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Threading.RateLimiting;
@@ -96,6 +97,9 @@ public static class ServiceCollectionExtensions
         fusion.AddClient<IDictionaryCommands>();
 
         fusion.AddClient<IAuditQueries>();
+
+        fusion.AddClient<IOrganizationQueries>();
+        fusion.AddClient<IOrganizationCommands>();
 
         // Blazor-интеграция Fusion (CircuitHub и т.п.) + AuthN на Blazor-стороне.
         fusion.AddBlazor();
