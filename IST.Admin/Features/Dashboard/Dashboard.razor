@@ -1,7 +1,6 @@
 @page "/"
 @attribute [Authorize]
-
-@inject IST.Admin.Services.LanguageService Lang
+@inherits IST.Admin.Shared.Components.LangAwareComponentBase
 
 <PageTitle>IST Admin — @Lang.L("nav_dashboard")</PageTitle>
 

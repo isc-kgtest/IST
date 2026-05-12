@@ -1,14 +1,14 @@
-using Microsoft.AspNetCore.Http;
 using Microsoft.JSInterop;
 
 namespace IST.Admin.Services;
 
 /// <summary>
 /// Простая словарная локализация без .resx / IStringLocalizer.
-/// Истинный источник — <c>localStorage['lang']</c> (см. <c>lang-storage.js</c>).
-/// Параллельно язык зеркалится в cookie <c>lang</c>, чтобы SSR pre-render
-/// сразу отрендерился на правильном языке (иначе виден RU→KG flash).
+/// Текущий язык хранится в <c>localStorage</c> под ключом <c>lang</c> (см. <c>lang-storage.js</c>).
 /// Регистрируется как scoped — один инстанс на circuit.
+/// Компоненты, отображающие локализованный текст, должны подписываться
+/// на <see cref="Changed"/>, чтобы перерендериться при смене языка
+/// (Blazor сам перерендеривает только тот компонент, в котором вызван StateHasChanged).
 /// </summary>
 public class LanguageService
 {
@@ -16,18 +16,14 @@ public class LanguageService
     private string _lang = "ru";
     private bool _initialized;
 
-    public LanguageService(IJSRuntime js, IHttpContextAccessor httpContextAccessor)
-    {
-        _js = js;
-        // Во время SSR pre-render HttpContext доступен и в нём уже есть cookie.
-        // Подхватываем язык сразу, чтобы первая отрисовка была на верном языке.
-        var cookieLang = httpContextAccessor.HttpContext?.Request.Cookies["lang"];
-        if (cookieLang is "ru" or "kg") _lang = cookieLang;
-    }
+    public LanguageService(IJSRuntime js) => _js = js;
 
     public string CurrentLang => _lang;
     public bool IsKg => _lang == "kg";
     public bool IsRu => _lang == "ru";
+
+    /// <summary>Срабатывает после смены языка (InitAsync / ToggleAsync).</summary>
+    public event Action? Changed;
 
     public async Task InitAsync()
     {
@@ -36,7 +32,11 @@ public class LanguageService
         try
         {
             var lang = await _js.InvokeAsync<string>("langStorage.get");
-            if (lang is "ru" or "kg") _lang = lang;
+            if ((lang is "ru" or "kg") && lang != _lang)
+            {
+                _lang = lang;
+                Changed?.Invoke();
+            }
         }
         catch { /* JS interop недоступен при SSR — оставляем дефолт */ }
     }
@@ -45,6 +45,7 @@ public class LanguageService
     {
         _lang = _lang == "ru" ? "kg" : "ru";
         await _js.InvokeVoidAsync("langStorage.set", _lang);
+        Changed?.Invoke();
     }
 
     /// <summary>Прямая двуязычная строка — для одноразовых текстов.</summary>
