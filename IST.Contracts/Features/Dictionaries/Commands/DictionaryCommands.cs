@@ -38,7 +38,8 @@ public partial record SaveDictionaryFieldCommand(
 [DataContract, MemoryPackable]
 public partial record DeleteDictionaryFieldCommand(
     [property: DataMember, MemoryPackOrder(0)] Session Session,
-    [property: DataMember, MemoryPackOrder(1)] Guid FieldId
+    [property: DataMember, MemoryPackOrder(1)] Guid FieldId,
+    [property: DataMember, MemoryPackOrder(2)] Guid DictionaryId
 ) : ICommand<ResponseDTO<string>>;
 
 // ── Записи справочника ────────────────────────────────────────────────────────
@@ -52,7 +53,8 @@ public partial record SaveDictionaryRecordCommand(
 [DataContract, MemoryPackable]
 public partial record DeleteDictionaryRecordCommand(
     [property: DataMember, MemoryPackOrder(0)] Session Session,
-    [property: DataMember, MemoryPackOrder(1)] Guid RecordId
+    [property: DataMember, MemoryPackOrder(1)] Guid RecordId,
+    [property: DataMember, MemoryPackOrder(2)] Guid DictionaryId
 ) : ICommand<ResponseDTO<string>>;
 
 // ── Импорт / Экспорт ──────────────────────────────────────────────────────────

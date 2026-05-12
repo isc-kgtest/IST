@@ -117,7 +117,7 @@
     {
         try
         {
-            var res = await _dictCommands.DeleteRecordAsync(new DeleteDictionaryRecordCommand(await _session.GetAsync(), recordId));
+            var res = await _dictCommands.DeleteRecordAsync(new DeleteDictionaryRecordCommand(await _session.GetAsync(), recordId, DictionaryId));
             if (res.Status) { _snackbar.Add("Запись удалена", Severity.Success); await OnRefresh.InvokeAsync(); }
             else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
         }

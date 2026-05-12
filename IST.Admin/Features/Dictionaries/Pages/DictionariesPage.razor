@@ -78,6 +78,16 @@ else
 	<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true">
 		@* ── Структура полей ── *@
 		<MudTabPanel Text="Структура полей" Icon="@Icons.Material.Rounded.TableChart">
+			@{
+				var _hasRecords = (State.ValueOrDefault?.Detail?.Records?.Count ?? 0) > 0;
+			}
+			@if (_hasRecords)
+			{
+				<MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3" Dense="true">
+					В справочнике уже есть записи. Менять ключ, тип и обязательность полей нельзя, удаление полей запрещено.
+					Сначала очистите данные на вкладке «Записи».
+				</MudAlert>
+			}
 			<MudDataGrid T="DictionaryFieldDto"
 						 Items="@(State.ValueOrDefault?.Detail?.Fields ?? new())"
 						 Hover="true" Striped="true" Dense="true"
@@ -104,7 +114,11 @@ else
 					<TemplateColumn Title="Действия" Filterable="false" Sortable="false">
 						<CellTemplate>
 							<MudIconButton Icon="@Icons.Material.Rounded.Edit" Size="Size.Small" OnClick="() => ShowEditFieldDialog(context.Item)" />
-							<MudIconButton Icon="@Icons.Material.Rounded.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => ShowDeleteFieldDialog(context.Item.Id, context.Item.DisplayName)" />
+							<MudTooltip Text="@(_hasRecords ? "Удаление запрещено: в справочнике есть записи" : "Удалить поле")">
+								<MudIconButton Icon="@Icons.Material.Rounded.Delete" Size="Size.Small" Color="Color.Error"
+											   Disabled="_hasRecords"
+											   OnClick="() => ShowDeleteFieldDialog(context.Item.Id, context.Item.DisplayName)" />
+							</MudTooltip>
 						</CellTemplate>
 					</TemplateColumn>
 				</Columns>

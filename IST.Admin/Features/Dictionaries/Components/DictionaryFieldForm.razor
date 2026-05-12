@@ -9,18 +9,26 @@
 @inject IST.Admin.Auth.SessionAccessor _session
 
 <MudPaper Style="min-width:360px;" Elevation="0">
+    @if (_structureLocked)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-3" Dense="true">
+            В справочнике есть записи. Можно изменить только название и порядок сортировки — ключ, тип
+            и обязательность поля заблокированы, чтобы не сломать сохранённые данные.
+        </MudAlert>
+    }
     <EditForm Model="@_request" OnValidSubmit="SubmitForm">
         <DataAnnotationsValidator />
-        <MudTextField T="string" @bind-Value="_request.FieldKey" Label="Ключ поля (camelCase)" Required="true" />
+        <MudTextField T="string" @bind-Value="_request.FieldKey" Label="Ключ поля (camelCase)" Required="true" Disabled="_structureLocked" />
         <MudTextField T="string" @bind-Value="_request.DisplayName" Label="Отображаемое название" Required="true" Class="mt-3" />
-        <MudSelect T="DictionaryFieldType" @bind-Value="_request.FieldType" Label="Тип данных" Class="mt-3">
+        <MudSelect T="DictionaryFieldType" @bind-Value="_request.FieldType" Label="Тип данных" Class="mt-3" Disabled="_structureLocked">
             @foreach (DictionaryFieldType ft in Enum.GetValues<DictionaryFieldType>())
             {
                 <MudSelectItem Value="ft">@ft</MudSelectItem>
             }
         </MudSelect>
         <MudNumericField T="int" @bind-Value="_request.SortOrder" Label="Порядок сортировки" Class="mt-3" />
-        <MudCheckBox T="bool" @bind-Value="_request.IsRequired" Label="Обязательное поле" Class="mt-3" />
+        <MudCheckBox T="bool" @bind-Value="_request.IsRequired" Label="Обязательное поле" Class="mt-3"
+                     Disabled="@(_structureLocked && !_initialRequired)" />
 
         <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-5" Spacing="2">
             <MudButton OnClick="Cancel" Variant="Variant.Text" Color="Color.Default" Disabled="_p">Отмена</MudButton>
@@ -36,9 +44,15 @@
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public Guid DictionaryId { get; set; }
     [Parameter] public DictionaryFieldDto? Field { get; set; }
+    /// <summary>Признак того, что в справочнике уже есть записи — структурные поля блокируются.</summary>
+    [Parameter] public bool HasRecords { get; set; }
 
     private bool _p;
     private DictionaryFieldRequest _request = new();
+    // Структура блокируется только при РЕДАКТИРОВАНИИ существующего поля при наличии записей.
+    // Создание нового поля разрешено всегда — оно просто добавляет пустой ключ к существующим JSON-ам.
+    private bool _structureLocked => HasRecords && Field != null;
+    private bool _initialRequired;
 
     protected override void OnParametersSet()
     {
@@ -53,6 +67,7 @@
                 IsRequired = Field.IsRequired,
                 SortOrder = Field.SortOrder
             };
+            _initialRequired = Field.IsRequired;
         }
     }
 

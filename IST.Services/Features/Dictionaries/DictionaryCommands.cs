@@ -121,12 +121,32 @@ public class DictionaryCommands : IDictionaryCommands
         }
 
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
-        
+
+        var isEdit = req.Id.HasValue && req.Id.Value != Guid.Empty;
         DictionaryFieldEntity entity;
-        if (req.Id.HasValue && req.Id.Value != Guid.Empty)
+        if (isEdit)
         {
-            var existing = await dbContext.DictionaryFields.FirstOrDefaultAsync(f => f.Id == req.Id.Value, cancellationToken);
+            var existing = await dbContext.DictionaryFields.FirstOrDefaultAsync(f => f.Id == req.Id!.Value, cancellationToken);
             if (existing == null) return new ResponseDTO<DictionaryFieldDto> { Status = false, StatusMessage = "Поле не найдено" };
+
+            // Если в справочнике есть записи — запрещаем структурные изменения (ключ/тип/обязательность),
+            // т.к. ранее сохранённые JSON-данные могут не соответствовать новой схеме.
+            var hasRecords = await dbContext.DictionaryRecords
+                .AsNoTracking()
+                .AnyAsync(r => r.DictionaryId == command.DictionaryId && !r.IsDeleted, cancellationToken);
+            if (hasRecords)
+            {
+                if (!string.Equals(existing.FieldKey, req.FieldKey, StringComparison.Ordinal)
+                    || existing.FieldType != req.FieldType
+                    || (existing.IsRequired == false && req.IsRequired == true))
+                {
+                    return new ResponseDTO<DictionaryFieldDto>
+                    {
+                        Status = false,
+                        StatusMessage = "В справочнике уже есть записи — нельзя менять ключ, тип поля или делать поле обязательным. Можно изменить только название и порядок сортировки. Сначала очистите данные."
+                    };
+                }
+            }
             entity = existing;
         }
         else
@@ -149,16 +169,12 @@ public class DictionaryCommands : IDictionaryCommands
     [CommandHandler]
     public virtual async Task<ResponseDTO<string>> DeleteFieldAsync(DeleteDictionaryFieldCommand command, CancellationToken cancellationToken = default)
     {
-        var dbContextForFind = await _dbHub.CreateDbContext(cancellationToken);
-        var field = await dbContextForFind.DictionaryFields.AsNoTracking().FirstOrDefaultAsync(f => f.Id == command.FieldId, cancellationToken);
-        var dictId = field?.DictionaryId ?? Guid.Empty;
-
         if (Invalidation.IsActive)
         {
-            if (dictId != Guid.Empty)
+            if (command.DictionaryId != Guid.Empty)
             {
-                _ = _queries.GetFieldsByDictionaryIdAsync(dictId, default);
-                _ = _queries.GetDictionaryDetailAsync(dictId, default);
+                _ = _queries.GetFieldsByDictionaryIdAsync(command.DictionaryId, default);
+                _ = _queries.GetDictionaryDetailAsync(command.DictionaryId, default);
             }
             return default!;
         }
@@ -166,6 +182,20 @@ public class DictionaryCommands : IDictionaryCommands
         await using var dbContext = await _dbHub.CreateOperationDbContext(cancellationToken);
         var entity = await dbContext.DictionaryFields.FirstOrDefaultAsync(f => f.Id == command.FieldId, cancellationToken);
         if (entity == null) return new ResponseDTO<string> { Status = false, StatusMessage = "Поле не найдено" };
+
+        // Запрещаем удаление поля, если в справочнике есть записи —
+        // их JSON-данные стали бы рассинхронизированы со схемой.
+        var hasRecords = await dbContext.DictionaryRecords
+            .AsNoTracking()
+            .AnyAsync(r => r.DictionaryId == entity.DictionaryId && !r.IsDeleted, cancellationToken);
+        if (hasRecords)
+        {
+            return new ResponseDTO<string>
+            {
+                Status = false,
+                StatusMessage = "В справочнике уже есть записи — удаление поля запрещено. Сначала удалите все записи."
+            };
+        }
 
         dbContext.DictionaryFields.Remove(entity);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -210,16 +240,12 @@ public class DictionaryCommands : IDictionaryCommands
     [CommandHandler]
     public virtual async Task<ResponseDTO<string>> DeleteRecordAsync(DeleteDictionaryRecordCommand command, CancellationToken cancellationToken = default)
     {
-        var dbContextForFind = await _dbHub.CreateDbContext(cancellationToken);
-        var record = await dbContextForFind.DictionaryRecords.AsNoTracking().FirstOrDefaultAsync(r => r.Id == command.RecordId, cancellationToken);
-        var dictId = record?.DictionaryId ?? Guid.Empty;
-
         if (Invalidation.IsActive)
         {
-            if (dictId != Guid.Empty)
+            if (command.DictionaryId != Guid.Empty)
             {
-                _ = _queries.GetRecordsByDictionaryIdAsync(dictId, default);
-                _ = _queries.GetDictionaryDetailAsync(dictId, default);
+                _ = _queries.GetRecordsByDictionaryIdAsync(command.DictionaryId, default);
+                _ = _queries.GetDictionaryDetailAsync(command.DictionaryId, default);
             }
             _ = _queries.GetRecordByIdAsync(command.RecordId, default);
             return default!;

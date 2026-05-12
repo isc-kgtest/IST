@@ -189,6 +189,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
 
     private async Task ShowEditFieldDialog(DictionaryFieldDto field)
     {
+        var hasRecords = (State.ValueOrDefault?.Detail?.Records?.Count ?? 0) > 0;
         var parameters = new DialogParameters
         {
             ["ChildContent"] = (RenderFragment)(builder =>
@@ -196,6 +197,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
                 builder.OpenComponent<DictionaryFieldForm>(0);
                 builder.AddAttribute(1, "DictionaryId", field.DictionaryId);
                 builder.AddAttribute(2, "Field", field);
+                builder.AddAttribute(3, "HasRecords", hasRecords);
                 builder.CloseComponent();
             })
         };
@@ -239,7 +241,8 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
 
         try
         {
-            var res = await _dictCommands.DeleteFieldAsync(new DeleteDictionaryFieldCommand(await _session.GetAsync(), fieldId));
+            var dictId = _selectedDictionary?.Id ?? Guid.Empty;
+            var res = await _dictCommands.DeleteFieldAsync(new DeleteDictionaryFieldCommand(await _session.GetAsync(), fieldId, dictId));
             if (res.Status) { _snackbar.Add("Поле удалено", Severity.Success); await RefreshAsync(); }
             else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
         }
