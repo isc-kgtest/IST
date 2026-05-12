@@ -12,6 +12,9 @@ using IST.Shared.DTOs.Common;
 using IST.Shared.DTOs.Dictionaries;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -21,6 +24,10 @@ namespace IST.Services.Features.Dictionaries;
 
 public class DictionaryCommands : IDictionaryCommands
 {
+    // Community-лицензия QuestPDF — бесплатно для компаний с выручкой < $1M.
+    // Устанавливается единожды через статический конструктор.
+    static DictionaryCommands() => QuestPDF.Settings.License = LicenseType.Community;
+
     private readonly DbHub<AppDbContext> _dbHub;
     private readonly IDictionaryQueries _queries;
     private readonly IMapper _mapper;
@@ -407,6 +414,12 @@ public class DictionaryCommands : IDictionaryCommands
             contentType = "text/csv; charset=utf-8";
             fileName = $"{safeSlug}.csv";
         }
+        else if (format == "pdf")
+        {
+            bytes = BuildPdf(fields, records, dict.Name);
+            contentType = "application/pdf";
+            fileName = $"{safeSlug}.pdf";
+        }
         else
         {
             bytes = BuildXlsx(fields, records, dict.Name);
@@ -649,6 +662,114 @@ public class DictionaryCommands : IDictionaryCommands
             default:
                 cell.Value = v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
                 break;
+        }
+    }
+
+    // ── PDF ───────────────────────────────────────────────────────────────────
+
+    private static byte[] BuildPdf(List<DictionaryFieldEntity> fields, List<DictionaryRecordEntity> records, string title)
+    {
+        // QuestPDF в landscape, чтобы влезали широкие таблицы.
+        var doc = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4.Landscape());
+                page.Margin(20);
+                page.DefaultTextStyle(x => x.FontSize(9).FontFamily(Fonts.Calibri));
+
+                page.Header().PaddingBottom(8).Column(col =>
+                {
+                    col.Item().Text(string.IsNullOrWhiteSpace(title) ? "Справочник" : title)
+                        .FontSize(14).SemiBold();
+                    col.Item().Text($"Записей: {records.Count} • Сформировано: {DateTime.Now:dd.MM.yyyy HH:mm}")
+                        .FontSize(8).FontColor(Colors.Grey.Darken1);
+                });
+
+                page.Content().Table(table =>
+                {
+                    table.ColumnsDefinition(c =>
+                    {
+                        foreach (var _ in fields) c.RelativeColumn();
+                        if (fields.Count == 0) c.RelativeColumn(); // пустая таблица без полей
+                    });
+
+                    // Заголовки
+                    table.Header(header =>
+                    {
+                        foreach (var f in fields)
+                        {
+                            header.Cell().Element(HeaderCellStyle).Text(f.DisplayName).SemiBold();
+                        }
+                        if (fields.Count == 0)
+                            header.Cell().Element(HeaderCellStyle).Text("—");
+                    });
+
+                    // Данные
+                    foreach (var rec in records)
+                    {
+                        JsonDocument? jdoc = null;
+                        try { jdoc = JsonDocument.Parse(rec.Data); } catch { /* битый JSON */ }
+
+                        foreach (var f in fields)
+                        {
+                            var text = "—";
+                            if (jdoc != null && jdoc.RootElement.TryGetProperty(f.FieldKey, out var v))
+                                text = FormatJsonValue(v, f.FieldType);
+                            table.Cell().Element(BodyCellStyle).Text(text);
+                        }
+                        if (fields.Count == 0)
+                            table.Cell().Element(BodyCellStyle).Text("—");
+
+                        jdoc?.Dispose();
+                    }
+                });
+
+                page.Footer().AlignRight().Text(t =>
+                {
+                    t.DefaultTextStyle(s => s.FontSize(8).FontColor(Colors.Grey.Darken1));
+                    t.Span("стр. ");
+                    t.CurrentPageNumber();
+                    t.Span(" из ");
+                    t.TotalPages();
+                });
+            });
+        });
+
+        using var ms = new MemoryStream();
+        doc.GeneratePdf(ms);
+        return ms.ToArray();
+
+        static IContainer HeaderCellStyle(IContainer c) => c
+            .Background(Colors.Grey.Lighten3)
+            .BorderBottom(1).BorderColor(Colors.Grey.Darken1)
+            .PaddingVertical(4).PaddingHorizontal(4);
+
+        static IContainer BodyCellStyle(IContainer c) => c
+            .BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2)
+            .PaddingVertical(3).PaddingHorizontal(4);
+    }
+
+    /// <summary>Преобразование JSON-значения в человекочитаемую строку с учётом типа поля.</summary>
+    private static string FormatJsonValue(JsonElement v, DictionaryFieldType type)
+    {
+        if (v.ValueKind == JsonValueKind.Null) return string.Empty;
+        switch (type)
+        {
+            case DictionaryFieldType.Boolean:
+                if (v.ValueKind is JsonValueKind.True) return "Да";
+                if (v.ValueKind is JsonValueKind.False) return "Нет";
+                return v.ToString();
+            case DictionaryFieldType.Date:
+                if (v.ValueKind == JsonValueKind.String && DateTime.TryParse(v.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var d))
+                    return d.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+                return v.ToString();
+            case DictionaryFieldType.DateTime:
+                if (v.ValueKind == JsonValueKind.String && DateTime.TryParse(v.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var dt))
+                    return dt.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+                return v.ToString();
+            default:
+                return v.ValueKind == JsonValueKind.String ? v.GetString() ?? string.Empty : v.ToString();
         }
     }
 

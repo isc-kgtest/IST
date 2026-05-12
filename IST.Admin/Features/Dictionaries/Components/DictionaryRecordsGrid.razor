@@ -25,12 +25,23 @@
         <MudTooltip Placement="Placement.Top" Text="Импорт">
             <MudFab Size="Size.Small" Class="ml-2" Color="Color.Warning" StartIcon="@Icons.Material.Rounded.Upload" OnClick="ShowImportDialog" />
         </MudTooltip>
-        <MudTooltip Placement="Placement.Top" Text="Экспорт XLSX">
-            <MudFab Size="Size.Small" Class="ml-2" Color="Color.Info" StartIcon="@Icons.Material.Rounded.Download" OnClick="@(() => ExportAsync("xlsx"))" />
-        </MudTooltip>
-        <MudTooltip Placement="Placement.Top" Text="Экспорт CSV">
-            <MudFab Size="Size.Small" Class="ml-2" Color="Color.Info" StartIcon="@Icons.Material.Rounded.FileDownload" OnClick="@(() => ExportAsync("csv"))" />
-        </MudTooltip>
+        <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+            <ActivatorContent>
+                @{
+                    var menuCtx = context;
+                }
+                <MudTooltip Placement="Placement.Top" Text="Экспорт">
+                    <MudFab Size="Size.Small" Class="ml-2" Color="Color.Info"
+                            StartIcon="@Icons.Material.Rounded.Download"
+                            OnClick="@(async (MouseEventArgs e) => await menuCtx.ToggleAsync(e))" />
+                </MudTooltip>
+            </ActivatorContent>
+            <ChildContent>
+                <MudMenuItem Icon="@Icons.Material.Rounded.GridOn"        OnClick="@(() => ExportAsync("xlsx"))">XLSX</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Rounded.Description"   OnClick="@(() => ExportAsync("csv"))">CSV</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Rounded.PictureAsPdf"  OnClick="@(() => ExportAsync("pdf"))">PDF</MudMenuItem>
+            </ChildContent>
+        </MudMenu>
         <MudTooltip Placement="Placement.Top" Text="Обновить">
             <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="@(() => OnRefresh.InvokeAsync())" />
         </MudTooltip>
