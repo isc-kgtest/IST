@@ -1,5 +1,6 @@
 using IST.Admin.Auth;
 using IST.Admin.Extensions;
+using MudBlazor;
 using MudBlazor.Services;
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,10 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddMudServices();
 builder.Services.AddScoped<IST.Admin.Services.LanguageService>();
+
+// Кастомный MudBlazor-локализатор: переопределяет встроенные английские строки
+// (фильтры DataGrid, пейджер, кнопки диалогов) на ru/kg по LanguageService.
+builder.Services.AddScoped<MudLocalizer, IST.Admin.Services.MudBlazorLocalizer>();
 
 // 2. Custom Configurations
 builder.Services.AddAuthenticationAndAuthorization(builder.Environment);

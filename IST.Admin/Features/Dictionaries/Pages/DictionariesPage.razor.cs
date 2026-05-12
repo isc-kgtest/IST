@@ -1,6 +1,7 @@
 using ActualLab.Fusion;
 using ActualLab.Fusion.Blazor;
 using IST.Admin.Features.Dictionaries.Components;
+using IST.Admin.Services;
 using IST.Contracts.Features.Dictionaries;
 using IST.Contracts.Features.Dictionaries.Commands;
 using IST.Shared.DTOs.Dictionaries;
@@ -13,6 +14,22 @@ namespace IST.Admin.Features.Dictionaries.Pages;
 
 public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.Model>
 {
+    [Inject] private LanguageService _lang { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _lang.Changed += OnLangChanged;
+    }
+
+    private void OnLangChanged() => InvokeAsync(StateHasChanged);
+
+    public override ValueTask DisposeAsync()
+    {
+        _lang.Changed -= OnLangChanged;
+        return base.DisposeAsync();
+    }
+
     public sealed record Model(List<DictionaryDto> Dictionaries, DictionaryDetailDto? Detail)
     {
         public static readonly Model Empty = new(new List<DictionaryDto>(), null);
