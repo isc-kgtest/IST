@@ -31,10 +31,10 @@
             <MudPaper Class="pa-3 mb-2" Outlined="true">
                 <MudGrid>
                     <MudItem xs="3">
-                        <MudTextField T="string" @bind-Value="_request.Fields[idx].FieldKey" Label="Ключ" Required="true" Dense="true" />
+                        <MudTextField T="string" @bind-Value="_request.Fields[idx].FieldKey" Label="Ключ" Required="true" Margin="Margin.Dense" />
                     </MudItem>
                     <MudItem xs="3">
-                        <MudTextField T="string" @bind-Value="_request.Fields[idx].DisplayName" Label="Название" Required="true" Dense="true" />
+                        <MudTextField T="string" @bind-Value="_request.Fields[idx].DisplayName" Label="Название" Required="true" Margin="Margin.Dense" />
                     </MudItem>
                     <MudItem xs="2">
                         <MudSelect T="DictionaryFieldType" @bind-Value="_request.Fields[idx].FieldType" Label="Тип" Dense="true">
@@ -45,7 +45,7 @@
                         </MudSelect>
                     </MudItem>
                     <MudItem xs="1">
-                        <MudNumericField T="int" @bind-Value="_request.Fields[idx].SortOrder" Label="#" Dense="true" />
+                        <MudNumericField T="int" @bind-Value="_request.Fields[idx].SortOrder" Label="#" Margin="Margin.Dense" />
                     </MudItem>
                     <MudItem xs="1">
                         <MudCheckBox T="bool" @bind-Value="_request.Fields[idx].IsRequired" Label="Обяз." Dense="true" />

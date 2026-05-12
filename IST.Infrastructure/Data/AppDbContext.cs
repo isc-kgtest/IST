@@ -43,8 +43,6 @@ public class AppDbContext : DbContextBase, IAppDbContext
     public DbSet<DbEvent> Events { get; protected set; } = null!;
 
 
-    public DatabaseFacade Database => base.Database;
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

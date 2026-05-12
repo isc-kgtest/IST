@@ -139,7 +139,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
         var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Small };
         dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить справочник \"{name}\"?", parameters, options);
         var result = await dialogRef.Result;
-        if (result.Canceled) return;
+        if (result is null || result.Canceled) return;
 
         try
         {
@@ -167,7 +167,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
         var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Добавить поле", parameters, options);
         var result = await dialogRef.Result;
-        if (!result.Canceled) await RefreshAsync();
+        if (result is not null && !result.Canceled) await RefreshAsync();
     }
 
     private async Task ShowEditFieldDialog(DictionaryFieldDto field)
@@ -185,7 +185,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
         var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Редактировать поле", parameters, options);
         var result = await dialogRef.Result;
-        if (!result.Canceled) await RefreshAsync();
+        if (result is not null && !result.Canceled) await RefreshAsync();
     }
 
     private async Task ShowDeleteFieldDialog(Guid fieldId, string fieldName)
@@ -218,7 +218,7 @@ public partial class DictionariesPage : ComputedStateComponent<DictionariesPage.
         var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Small };
         dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить поле \"{fieldName}\"?", parameters, options);
         var result = await dialogRef.Result;
-        if (result.Canceled) return;
+        if (result is null || result.Canceled) return;
 
         try
         {

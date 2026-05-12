@@ -88,7 +88,7 @@
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
         var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Добавить запись", parameters, options);
         var result = await dialogRef.Result;
-        if (!result.Canceled) await OnRefresh.InvokeAsync();
+        if (result is not null && !result.Canceled) await OnRefresh.InvokeAsync();
     }
 
     private async Task ShowEditRecordDialog(DictionaryRecordDto record)
@@ -107,7 +107,7 @@
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium };
         var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Редактировать запись", parameters, options);
         var result = await dialogRef.Result;
-        if (!result.Canceled) await OnRefresh.InvokeAsync();
+        if (result is not null && !result.Canceled) await OnRefresh.InvokeAsync();
     }
 
     private async Task DeleteRecord(Guid recordId)
@@ -135,7 +135,7 @@
         var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small };
         var dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>("Импорт записей", parameters, options);
         var result = await dialogRef.Result;
-        if (!result.Canceled) await OnRefresh.InvokeAsync();
+        if (result is not null && !result.Canceled) await OnRefresh.InvokeAsync();
     }
 
     private async Task ExportAsync(string format)

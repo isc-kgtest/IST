@@ -58,7 +58,7 @@ else
     }
 
     <MudPaper Elevation="1" Class="pa-4">
-        <MudTabs Outlined="true" Rounded="true" PanelClass="pa-4" KeepPanelsAlive="true">
+        <MudTabs Outlined="true" Rounded="true" KeepPanelsAlive="true">
             @foreach (var role in model.Roles)
             {
                 <MudTabPanel Text="@role.Name">

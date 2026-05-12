@@ -39,10 +39,6 @@
 		{
 			var userName = user.Claims?.Where(c => c.Type.Equals(ClaimTypes.Name))?.FirstOrDefault()?.Value ?? "";
 
-			IDialogReference dialogRef = default!;
-			void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
-			void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
-
 			var parameters = new DialogParameters
 			{
 				["ChildContent"] = (RenderFragment)(builder =>

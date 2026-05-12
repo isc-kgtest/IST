@@ -121,8 +121,9 @@ public class DictionaryCommands : IDictionaryCommands
         DictionaryFieldEntity entity;
         if (req.Id.HasValue && req.Id.Value != Guid.Empty)
         {
-            entity = await dbContext.DictionaryFields.FirstOrDefaultAsync(f => f.Id == req.Id.Value, cancellationToken);
-            if (entity == null) return new ResponseDTO<DictionaryFieldDto> { Status = false, StatusMessage = "Поле не найдено" };
+            var existing = await dbContext.DictionaryFields.FirstOrDefaultAsync(f => f.Id == req.Id.Value, cancellationToken);
+            if (existing == null) return new ResponseDTO<DictionaryFieldDto> { Status = false, StatusMessage = "Поле не найдено" };
+            entity = existing;
         }
         else
         {
@@ -185,8 +186,9 @@ public class DictionaryCommands : IDictionaryCommands
         DictionaryRecordEntity entity;
         if (req.Id.HasValue && req.Id.Value != Guid.Empty)
         {
-            entity = await dbContext.DictionaryRecords.FirstOrDefaultAsync(r => r.Id == req.Id.Value, cancellationToken);
-            if (entity == null) return new ResponseDTO<DictionaryRecordDto> { Status = false, StatusMessage = "Запись не найдена" };
+            var existing = await dbContext.DictionaryRecords.FirstOrDefaultAsync(r => r.Id == req.Id.Value, cancellationToken);
+            if (existing == null) return new ResponseDTO<DictionaryRecordDto> { Status = false, StatusMessage = "Запись не найдена" };
+            entity = existing;
         }
         else
         {

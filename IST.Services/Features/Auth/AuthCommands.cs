@@ -389,7 +389,7 @@ public class AuthCommands : IAuthCommands
         user.Patronymic = string.IsNullOrWhiteSpace(request.Patronymic) ? null : request.Patronymic.Trim();
         user.Position = request.Position.Trim();
         user.OrganizationId = request.Organization;
-        user.Department = request.Department;
+        user.Department = request.Department ?? string.Empty;
         user.EMail = normalizedEmail;
         user.PhoneNumber = request.PhoneNumber.Trim();
         user.IsActive = request.IsActive;

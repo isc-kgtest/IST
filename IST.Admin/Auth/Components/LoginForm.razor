@@ -83,13 +83,11 @@
                 _navManager.NavigateTo("/", forceLoad: true);
             }
             else
-            if (jsResponse.ResponseDto.StatusCode == ResponseStatusCode.PasswordExpired)
+            if (jsResponse?.ResponseDto?.StatusCode == ResponseStatusCode.PasswordExpired)
             {
                 _snackbar.Add(jsResponse.ResponseDto.StatusMessage, Severity.Warning);
 
                 IDialogReference dialogRef = default!;
-                void CancelDialog() => dialogRef.Close(DialogResult.Cancel());
-                void ConfirmDialog() => dialogRef.Close(DialogResult.Ok(true));
 
                 var parameters = new DialogParameters
                 {
@@ -123,7 +121,7 @@
 
     public class GetLoginQuery
     {
-        public string Login { get; set; }
-        public string Password { get; set; }
-    }     
+        public string Login { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
 }

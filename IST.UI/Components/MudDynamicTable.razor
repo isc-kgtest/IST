@@ -38,9 +38,12 @@
                              AriaLabel="Open user menu" Dense="true" AnchorOrigin="Origin.TopLeft" TransformOrigin="Origin.TopRight">
                         @foreach (var item in (List<MenuItemModel>)context[col])
                         {
-                            <MudMenuItem OnClick="@item.OnClickAsync">
-                                @item.Label
-                            </MudMenuItem>
+                            @if (item.OnClickAsync is not null)
+                            {
+                                <MudMenuItem OnClick="@item.OnClickAsync">
+                                    @item.Label
+                                </MudMenuItem>
+                            }
                         }
                     </MudMenu>
                 </MudTd>
@@ -72,13 +75,13 @@
     [Parameter] 
     public List<Dictionary<string, object>> Items { get; set; } = new();
 
-    private List<Dictionary<string, object>> _previousItems;
+    private List<Dictionary<string, object>>? _previousItems;
 
-    private MudTable<Dictionary<string, object>> table;
+    private MudTable<Dictionary<string, object>>? table;
 
     private List<string> ColumnNames = new();
     private int totalItems;
-    private string searchString;
+    private string searchString = string.Empty;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -132,6 +135,6 @@
     private void OnSearch(string text)
     {
         searchString = text;
-        table.ReloadServerData();
+        table?.ReloadServerData();
     }
 }
