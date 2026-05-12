@@ -1,4 +1,4 @@
-@inject IST.Admin.Services.LanguageService Lang
+@inherits LangAwareComponentBase
 
 <button type="button" class="pill" @onclick="OnClick" aria-label="Сменить язык">
     <span class="pill-bg @(Lang.IsKg ? "kg" : "ru")"></span>
