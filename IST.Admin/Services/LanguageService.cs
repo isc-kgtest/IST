@@ -4,7 +4,7 @@ namespace IST.Admin.Services;
 
 /// <summary>
 /// Простая словарная локализация без .resx / IStringLocalizer.
-/// Текущий язык хранится в cookie <c>lang</c> на год (см. <c>lang-storage.js</c>).
+/// Текущий язык хранится в <c>localStorage</c> под ключом <c>lang</c> (см. <c>lang-storage.js</c>).
 /// Регистрируется как scoped — один инстанс на circuit.
 /// </summary>
 public class LanguageService

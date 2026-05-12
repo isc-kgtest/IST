@@ -1,11 +1,28 @@
-// Language storage helper — persists selected language in a cookie (1 year).
+// Language storage helper — persists selected language in localStorage.
 window.langStorage = {
     get: function () {
-        var m = document.cookie.match(/(?:^|;\s*)lang=([^;]*)/);
-        return m ? m[1] : 'ru';
+        try {
+            var v = localStorage.getItem('lang');
+            return (v === 'ru' || v === 'kg') ? v : 'ru';
+        } catch (e) { return 'ru'; }
     },
     set: function (lang) {
-        document.cookie = 'lang=' + lang + ';path=/;max-age=31536000;SameSite=Strict';
+        try { localStorage.setItem('lang', lang); } catch (e) { }
         document.documentElement.lang = lang;
+    }
+};
+
+// Theme storage helper — persists dark/light mode in localStorage.
+window.themeStorage = {
+    get: function () {
+        try {
+            var v = localStorage.getItem('theme');
+            if (v === 'dark') return true;
+            if (v === 'light') return false;
+        } catch (e) { }
+        return null; // no preference saved — caller decides default
+    },
+    set: function (isDark) {
+        try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch (e) { }
     }
 };
