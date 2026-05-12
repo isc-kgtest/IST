@@ -59,7 +59,7 @@
         <TemplateColumn Title="Действия" Filterable="false" Sortable="false">
             <CellTemplate>
                 <MudIconButton Icon="@Icons.Material.Rounded.Edit" Size="Size.Small" OnClick="() => ShowEditRecordDialog(context.Item)" />
-                <MudIconButton Icon="@Icons.Material.Rounded.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => DeleteRecord(context.Item.Id)" />
+                <MudIconButton Icon="@Icons.Material.Rounded.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => ShowDeleteRecordDialog(context.Item)" />
             </CellTemplate>
         </TemplateColumn>
     </Columns>
@@ -124,11 +124,47 @@
         if (result is not null && !result.Canceled) await OnRefresh.InvokeAsync();
     }
 
-    private async Task DeleteRecord(Guid recordId)
+    private async Task ShowDeleteRecordDialog(DictionaryRecordDto record)
     {
+        // Превью записи в заголовке: значение первого поля по SortOrder, если оно непустое;
+        // иначе короткий префикс GUID — чтобы пользователь видел, что именно удаляет.
+        var firstField = Fields.Where(f => !f.IsDeleted).OrderBy(f => f.SortOrder).FirstOrDefault();
+        var preview = firstField != null ? GetCellValue(record.Data, firstField.FieldKey) : "—";
+        if (string.IsNullOrWhiteSpace(preview) || preview == "—") preview = $"#{record.Id.ToString()[..8]}";
+
+        IDialogReference dialogRef = default!;
+        void Cancel() => dialogRef.Close(DialogResult.Cancel());
+        void Confirm() => dialogRef.Close(DialogResult.Ok(true));
+
+        var parameters = new DialogParameters
+        {
+            ["ButtonOk"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<MudButton>(0);
+                builder.AddAttribute(1, "Color", Color.Error);
+                builder.AddAttribute(2, "Variant", Variant.Filled);
+                builder.AddAttribute(3, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, Confirm));
+                builder.AddAttribute(4, "ChildContent", (RenderFragment)(b => b.AddContent(5, "Удалить")));
+                builder.CloseComponent();
+            }),
+            ["ButtonCancel"] = (RenderFragment)(builder =>
+            {
+                builder.OpenComponent<MudButton>(0);
+                builder.AddAttribute(1, "Color", Color.Default);
+                builder.AddAttribute(2, "OnClick", EventCallback.Factory.Create<MouseEventArgs>(this, Cancel));
+                builder.AddAttribute(3, "ChildContent", (RenderFragment)(b => b.AddContent(4, "Отмена")));
+                builder.CloseComponent();
+            }),
+        };
+
+        var options = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.Small };
+        dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить запись \"{preview}\"?", parameters, options);
+        var result = await dialogRef.Result;
+        if (result is null || result.Canceled) return;
+
         try
         {
-            var res = await _dictCommands.DeleteRecordAsync(new DeleteDictionaryRecordCommand(await _session.GetAsync(), recordId, DictionaryId));
+            var res = await _dictCommands.DeleteRecordAsync(new DeleteDictionaryRecordCommand(await _session.GetAsync(), record.Id, DictionaryId));
             if (res.Status) { _snackbar.Add("Запись удалена", Severity.Success); await OnRefresh.InvokeAsync(); }
             else _snackbar.Add($"Ошибка: {res.StatusMessage}", Severity.Warning);
         }
