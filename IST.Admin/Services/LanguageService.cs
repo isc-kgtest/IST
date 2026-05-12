@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.JSInterop;
 
 namespace IST.Admin.Services;
 
 /// <summary>
 /// Простая словарная локализация без .resx / IStringLocalizer.
-/// Текущий язык хранится в <c>localStorage</c> под ключом <c>lang</c> (см. <c>lang-storage.js</c>).
+/// Истинный источник — <c>localStorage['lang']</c> (см. <c>lang-storage.js</c>).
+/// Параллельно язык зеркалится в cookie <c>lang</c>, чтобы SSR pre-render
+/// сразу отрендерился на правильном языке (иначе виден RU→KG flash).
 /// Регистрируется как scoped — один инстанс на circuit.
 /// </summary>
 public class LanguageService
@@ -13,7 +16,14 @@ public class LanguageService
     private string _lang = "ru";
     private bool _initialized;
 
-    public LanguageService(IJSRuntime js) => _js = js;
+    public LanguageService(IJSRuntime js, IHttpContextAccessor httpContextAccessor)
+    {
+        _js = js;
+        // Во время SSR pre-render HttpContext доступен и в нём уже есть cookie.
+        // Подхватываем язык сразу, чтобы первая отрисовка была на верном языке.
+        var cookieLang = httpContextAccessor.HttpContext?.Request.Cookies["lang"];
+        if (cookieLang is "ru" or "kg") _lang = cookieLang;
+    }
 
     public string CurrentLang => _lang;
     public bool IsKg => _lang == "kg";

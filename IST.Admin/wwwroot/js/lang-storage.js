@@ -1,13 +1,18 @@
-// Language storage helper — persists selected language in localStorage.
+// Language storage helper — primary store is localStorage; mirror to a cookie
+// so the server can read it during SSR pre-render and avoid a RU→KG flash.
 window.langStorage = {
     get: function () {
         try {
             var v = localStorage.getItem('lang');
-            return (v === 'ru' || v === 'kg') ? v : 'ru';
-        } catch (e) { return 'ru'; }
+            if (v === 'ru' || v === 'kg') return v;
+        } catch (e) { }
+        // fall back to the SSR-mirror cookie if localStorage is empty
+        var m = document.cookie.match(/(?:^|;\s*)lang=([^;]*)/);
+        return (m && (m[1] === 'ru' || m[1] === 'kg')) ? m[1] : 'ru';
     },
     set: function (lang) {
         try { localStorage.setItem('lang', lang); } catch (e) { }
+        document.cookie = 'lang=' + lang + ';path=/;max-age=31536000;SameSite=Lax';
         document.documentElement.lang = lang;
     }
 };
