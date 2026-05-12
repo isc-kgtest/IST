@@ -63,7 +63,7 @@ public partial record ImportDictionaryRecordsCommand(
     [property: DataMember, MemoryPackOrder(1)] Guid DictionaryId,
     [property: DataMember, MemoryPackOrder(2)] byte[] FileContent,
     [property: DataMember, MemoryPackOrder(3)] string FileName
-) : ICommand<ResponseDTO<int>>;
+) : ICommand<ResponseDTO<ImportResult>>;
 
 [DataContract, MemoryPackable]
 public partial record ExportDictionaryRecordsCommand(

@@ -1,15 +1,17 @@
 @using ActualLab.Fusion
 @using IST.Contracts.Features.Dictionaries
 @using IST.Contracts.Features.Dictionaries.Commands
+@using IST.Shared.DTOs.Dictionaries
 @using Microsoft.AspNetCore.Components.Forms
 
 @inject IDictionaryCommands _dictCommands
 @inject ISnackbar _snackbar
 @inject IST.Admin.Auth.SessionAccessor _session
 
-<MudPaper Style="min-width:320px;" Elevation="0">
+<MudPaper Style="min-width:360px;max-width:560px;" Elevation="0">
     <MudText Typo="Typo.body2" Class="mb-4">
         Выберите файл <b>XLSX</b> или <b>CSV</b> для импорта записей в справочник.
+        Заголовки колонок должны совпадать с ключами полей (или их отображаемыми названиями).
     </MudText>
 
     <MudFileUpload T="IBrowserFile" Accept=".xlsx,.csv" FilesChanged="OnFileSelected">
@@ -25,8 +27,27 @@
         <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">@_file.Name (@(_file.Size / 1024) КБ)</MudAlert>
     }
 
+    @if (_result != null)
+    {
+        <MudAlert Severity="@(_result.SkippedCount == 0 ? Severity.Success : Severity.Warning)" Dense="true" Class="mt-3">
+            Импортировано: <b>@_result.ImportedCount</b>, пропущено: <b>@_result.SkippedCount</b>
+        </MudAlert>
+        @if (_result.Errors.Count > 0)
+        {
+            <MudPaper Outlined="true" Class="mt-2 pa-2" Style="max-height:200px;overflow-y:auto;">
+                <MudText Typo="Typo.caption" Color="Color.Error" Class="d-block mb-1">Ошибки валидации:</MudText>
+                @foreach (var err in _result.Errors)
+                {
+                    <MudText Typo="Typo.caption" Class="d-block">• @err</MudText>
+                }
+            </MudPaper>
+        }
+    }
+
     <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-5" Spacing="2">
-        <MudButton OnClick="Cancel" Variant="Variant.Text" Color="Color.Default" Disabled="_p">Отмена</MudButton>
+        <MudButton OnClick="Cancel" Variant="Variant.Text" Color="Color.Default" Disabled="_p">
+            @(_result != null ? "Закрыть" : "Отмена")
+        </MudButton>
         <MudButton OnClick="SubmitImport" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_p || _file == null)">
             @(_p ? "Импорт..." : "Импортировать")
         </MudButton>
@@ -40,24 +61,38 @@
 
     private bool _p;
     private IBrowserFile? _file;
+    private ImportResult? _result;
 
-    private void Cancel() => MudDialog?.Cancel();
-    private void OnFileSelected(IBrowserFile file) => _file = file;
+    private void Cancel()
+    {
+        if (_result != null && _result.ImportedCount > 0) MudDialog?.Close(DialogResult.Ok(true));
+        else MudDialog?.Cancel();
+    }
+
+    private void OnFileSelected(IBrowserFile file)
+    {
+        _file = file;
+        _result = null;
+    }
 
     private async Task SubmitImport()
     {
         if (_p || _file == null) return;
         _p = true;
+        _result = null;
         try
         {
             using var ms = new MemoryStream();
             await _file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(ms);
             var command = new ImportDictionaryRecordsCommand(await _session.GetAsync(), DictionaryId, ms.ToArray(), _file.Name);
             var res = await _dictCommands.ImportRecordsAsync(command);
-            if (res.Status)
+            if (res.Status && res.Data != null)
             {
-                _snackbar.Add($"Импортировано записей: {res.Data}", Severity.Success);
-                MudDialog?.Close(DialogResult.Ok(true));
+                _result = res.Data;
+                if (_result.ImportedCount > 0)
+                    _snackbar.Add($"Импортировано записей: {_result.ImportedCount}", Severity.Success);
+                if (_result.SkippedCount > 0)
+                    _snackbar.Add($"Пропущено записей: {_result.SkippedCount}", Severity.Warning);
             }
             else _snackbar.Add($"Ошибка импорта: {res.StatusMessage}", Severity.Warning);
         }

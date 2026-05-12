@@ -121,3 +121,15 @@ public partial class SaveDictionaryRecordRequest
     /// <summary>JSON-строка с данными записи.</summary>
     public string Data        { get; set; } = "{}";
 }
+
+// ──────────────────────────────────────────────────────────
+//  Результат импорта записей
+// ──────────────────────────────────────────────────────────
+
+[MemoryPackable]
+public partial class ImportResult
+{
+    [MemoryPackOrder(0)] public int ImportedCount { get; set; }
+    [MemoryPackOrder(1)] public int SkippedCount  { get; set; }
+    [MemoryPackOrder(2)] public List<string> Errors { get; set; } = new();
+}

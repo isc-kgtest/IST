@@ -24,7 +24,7 @@ public interface IDictionaryCommands : ICommandService, IComputeService
 
     // ── Импорт / Экспорт ──────────────────────────────────────────────────────
     /// <summary>Импорт записей из XLSX/CSV файла в указанный справочник.</summary>
-    Task<ResponseDTO<int>> ImportRecordsAsync(ImportDictionaryRecordsCommand command, CancellationToken cancellationToken = default);
+    Task<ResponseDTO<ImportResult>> ImportRecordsAsync(ImportDictionaryRecordsCommand command, CancellationToken cancellationToken = default);
 
     /// <summary>Экспорт записей справочника. Возвращает байты файла и MIME-тип.</summary>
     Task<ResponseDTO<ExportResult>> ExportRecordsAsync(ExportDictionaryRecordsCommand command, CancellationToken cancellationToken = default);

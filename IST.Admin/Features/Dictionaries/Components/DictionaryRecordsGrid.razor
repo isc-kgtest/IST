@@ -28,6 +28,9 @@
         <MudTooltip Placement="Placement.Top" Text="Экспорт XLSX">
             <MudFab Size="Size.Small" Class="ml-2" Color="Color.Info" StartIcon="@Icons.Material.Rounded.Download" OnClick="@(() => ExportAsync("xlsx"))" />
         </MudTooltip>
+        <MudTooltip Placement="Placement.Top" Text="Экспорт CSV">
+            <MudFab Size="Size.Small" Class="ml-2" Color="Color.Info" StartIcon="@Icons.Material.Rounded.FileDownload" OnClick="@(() => ExportAsync("csv"))" />
+        </MudTooltip>
         <MudTooltip Placement="Placement.Top" Text="Обновить">
             <MudFab Size="Size.Small" Class="ml-2" Color="Color.Primary" StartIcon="@Icons.Material.Rounded.Refresh" OnClick="@(() => OnRefresh.InvokeAsync())" />
         </MudTooltip>
