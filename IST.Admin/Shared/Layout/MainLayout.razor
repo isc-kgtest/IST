@@ -140,12 +140,24 @@
         if (firstRender)
         {
             await Lang.InitAsync();
+            try
+            {
+                var saved = await JS.InvokeAsync<bool?>("themeStorage.get");
+                if (saved.HasValue) _isDarkMode = saved.Value;
+            }
+            catch { /* JS недоступен при SSR */ }
             StateHasChanged();
         }
     }
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
-    private void ToggleDarkMode() => _isDarkMode = !_isDarkMode;
+
+    private async Task ToggleDarkMode()
+    {
+        _isDarkMode = !_isDarkMode;
+        try { await JS.InvokeVoidAsync("themeStorage.set", _isDarkMode); }
+        catch { /* JS недоступен — состояние останется только в памяти */ }
+    }
     private async Task LogoutAsync() => await JS.InvokeVoidAsync("authHelper.logout");
 
     private readonly MudTheme _adminTheme = new()
