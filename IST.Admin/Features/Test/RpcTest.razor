@@ -16,7 +16,7 @@ else if (error != null)
 else
 {
     <MudList T="string">
-        @foreach (var user in users)
+        @foreach (var user in users!)
         {
             <MudListItem>@user.Login (@user.FullName)</MudListItem>
         }

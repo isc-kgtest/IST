@@ -6,13 +6,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ActualLab.Fusion.Server" Version="12.3.70" />
-    <PackageReference Include="ActualLab.Fusion.Blazor.Authentication" Version="12.3.70" />
-    <PackageReference Include="ActualLab.Rpc.Server" Version="12.3.70" />
-	<PackageReference Include="ActualLab.Fusion.EntityFramework" Version="12.3.70" />
-	<PackageReference Include="ActualLab.CommandR" Version="12.3.70" />
+    <PackageReference Include="ActualLab.Fusion.Server" Version="12.5.2" />
+    <PackageReference Include="ActualLab.Fusion.Blazor.Authentication" Version="12.5.2" />
+    <PackageReference Include="ActualLab.Rpc.Server" Version="12.5.2" />
+	<PackageReference Include="ActualLab.Fusion.EntityFramework" Version="12.5.2" />
+	<PackageReference Include="ActualLab.CommandR" Version="12.5.2" />
 	<PackageReference Include="Mapster.DependencyInjection" Version="10.0.7" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.6">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>

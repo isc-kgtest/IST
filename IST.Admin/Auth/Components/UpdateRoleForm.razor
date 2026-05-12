@@ -61,7 +61,7 @@
 @code {
 
     [CascadingParameter]
-    private IMudDialogInstance MudDialog { get; set; }
+    private IMudDialogInstance MudDialog { get; set; } = default!;
 
     [Parameter]
     public Guid RoleId { get; set; }

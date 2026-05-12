@@ -7,26 +7,29 @@
 @inject IOrganizationCommands _commands
 @inject IST.Admin.Auth.SessionAccessor _session
 
-<MudStack Spacing="3">
-    <MudTextField @bind-Value="_code" Label="Код (короткий, латиница)" Variant="Variant.Outlined" Required="true" />
-    <MudTextField @bind-Value="_name" Label="Название" Variant="Variant.Outlined" Required="true" />
-    <MudTextField @bind-Value="_description" Label="Описание" Variant="Variant.Outlined" Lines="2" />
-    <MudNumericField @bind-Value="_level" Label="Логический уровень (для подсказки)" Variant="Variant.Outlined" />
-    <MudNumericField @bind-Value="_sortOrder" Label="Порядок отображения" Variant="Variant.Outlined" />
-    <MudTextField @bind-Value="_icon" Label="Иконка (Material name, например 'Apartment')" Variant="Variant.Outlined" />
-    @if (!string.IsNullOrEmpty(_error))
-    {
-        <MudAlert Severity="Severity.Warning" Dense="true">@_error</MudAlert>
-    }
-</MudStack>
-
-<MudDialogActions>
-    <MudButton OnClick="Cancel">Отмена</MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync"
-               Disabled="@(_saving || string.IsNullOrWhiteSpace(_name) || string.IsNullOrWhiteSpace(_code))">
-        @(_saving ? "Сохраняем..." : "Сохранить")
-    </MudButton>
-</MudDialogActions>
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_code" Label="Код (короткий, латиница)" Variant="Variant.Outlined" Required="true" />
+            <MudTextField @bind-Value="_name" Label="Название" Variant="Variant.Outlined" Required="true" />
+            <MudTextField @bind-Value="_description" Label="Описание" Variant="Variant.Outlined" Lines="2" />
+            <MudNumericField @bind-Value="_level" Label="Логический уровень (для подсказки)" Variant="Variant.Outlined" />
+            <MudNumericField @bind-Value="_sortOrder" Label="Порядок отображения" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_icon" Label="Иконка (Material name, например 'Apartment')" Variant="Variant.Outlined" />
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true">@_error</MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync"
+                   Disabled="@(_saving || string.IsNullOrWhiteSpace(_name) || string.IsNullOrWhiteSpace(_code))">
+            @(_saving ? "Сохраняем..." : "Сохранить")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;

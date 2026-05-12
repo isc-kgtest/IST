@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ActualLab.Fusion.Blazor.Authentication"  Version="12.3.70" />
+    <PackageReference Include="ActualLab.Fusion.Blazor.Authentication"  Version="12.5.2" />
   </ItemGroup>
 
   <ItemGroup>

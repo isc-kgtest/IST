@@ -21,7 +21,7 @@
 	Панель управления доступом
 </MudAlert>
 
-<MudTabs @bind-DisableRipple="_processing" Outlined="true" Rounded="true" ApplyEffectsToContainer="true">
+<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true">
 	
 	@* ========================== ВКЛАДКА ПОЛЬЗОВАТЕЛИ ========================== *@
 	<MudTabPanel Text="Пользователи" Icon="@Icons.Material.Rounded.People">
@@ -277,7 +277,7 @@
 		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить пользователя \"{userFullName}\"?", parameters, options);
 
 		var result = await dialogRef.Result;
-		if (result.Canceled)
+		if (result is null || result.Canceled)
 			return;
 
 		try
@@ -367,7 +367,7 @@
 		dialogRef = await _dialogService.ShowAsync<MudDynamicDialog>($"Удалить роль \"{roleName}\"?", parameters, options);
 
 		var result = await dialogRef.Result;
-		if (result.Canceled)
+		if (result is null || result.Canceled)
 			return;
 
 		try
